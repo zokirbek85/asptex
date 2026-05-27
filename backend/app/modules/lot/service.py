@@ -147,6 +147,6 @@ class LotService:
         )
         return lot
 
-    async def get_stock_summary(self, lot_id: uuid.UUID) -> list[dict]:
+    async def get_stock_summary(self, lot_id: uuid.UUID) -> "list[dict]":
         await self.repo.get_by_id_or_raise(lot_id, "Lot")
         return await self.repo.get_stock_summary(lot_id)

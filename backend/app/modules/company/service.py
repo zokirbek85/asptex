@@ -24,7 +24,7 @@ class CompanyService:
         page_size: int,
         active_only: bool = False,
         search: str | None = None,
-    ) -> PaginatedResponse[Company]:
+    ) -> PaginatedResponse:
         items, total = await self.repo.list_paginated(page, page_size, active_only, search)
         return PaginatedResponse.build(items, total, page, page_size)
 

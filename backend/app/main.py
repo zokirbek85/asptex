@@ -24,6 +24,13 @@ from app.modules.count_catalog.router import router as count_router
 from app.modules.lot.router import router as lot_router
 from app.modules.user.router import router as user_router
 from app.modules.warehouse.router import router as warehouse_router
+import app.modules.shipment.models  # ensure Shipment model is registered
+import app.modules.user.models  # ensure User and related models are registered
+import app.modules.company.models  # ensure Company model is registered
+import app.modules.contract.models  # ensure Contract model is registered
+import app.modules.counterparty.models  # ensure Counterparty model is registered
+import app.modules.warehouse.models  # ensure Warehouse model is registered
+import app.modules.auth.models  # ensure Auth models are registered
 
 
 @asynccontextmanager
