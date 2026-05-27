@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mkdir -p \"C:\\\\Users\\\\Zalman\\\\.claude\\\\projects\\\\d--Project-new-asptex\\\\memory\")"
+      "Bash(mkdir -p \"C:\\\\Users\\\\Zalman\\\\.claude\\\\projects\\\\d--Project-new-asptex\\\\memory\")",
+      "Bash(docker system *)",
+      "Bash(echo \"---EXIT:$?\")",
+      "Bash(docker info *)",
+      "PowerShell(Get-PSDrive C | Select-Object Name, @{N='Used\\(GB\\)';E={[math]::Round\\($_.Used/1GB,1\\)}}, @{N='Free\\(GB\\)';E={[math]::Round\\($_.Free/1GB,1\\)}})",
+      "PowerShell(Get-PSDrive -PSProvider FileSystem | Select-Object Name, @{N='Used\\(GB\\)';E={[math]::Round\\($_.Used/1GB,1\\)}}, @{N='Free\\(GB\\)';E={[math]::Round\\($_.Free/1GB,1\\)}}, Root)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Zalman\\.claude\\projects\\d--Project-new-asptex"
