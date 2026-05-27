@@ -1,0 +1,123 @@
+from enum import Enum
+
+
+class UserRole(str, Enum):
+    ADMIN = "ADMIN"
+    DIRECTOR = "DIRECTOR"
+    DEPUTY_DIRECTOR = "DEPUTY_DIRECTOR"
+    WH_RAW = "WH_RAW"
+    WH_FINISHED = "WH_FINISHED"
+    PRODUCTION = "PRODUCTION"
+    ACCOUNTANT = "ACCOUNTANT"
+
+
+class WarehouseType(str, Enum):
+    RAW_COTTON = "RAW_COTTON"
+    FINISHED_GOODS = "FINISHED_GOODS"
+    WASTE = "WASTE"
+    PACKAGING = "PACKAGING"
+
+
+class CounterpartyType(str, Enum):
+    BUYER = "BUYER"
+    TOLLING_OWNER = "TOLLING_OWNER"
+    BOTH = "BOTH"
+
+
+class LotStatus(str, Enum):
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+    BLOCKED = "BLOCKED"
+
+
+class ReportStatus(str, Enum):
+    DRAFT = "DRAFT"
+    SUBMITTED = "SUBMITTED"
+    CLOSED = "CLOSED"
+
+
+class ShipmentStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    PARTIALLY_CANCELLED = "PARTIALLY_CANCELLED"
+    CANCELLED = "CANCELLED"
+
+
+class AdjustmentStatus(str, Enum):
+    DRAFT = "DRAFT"
+    POSTED = "POSTED"
+
+
+class TransactionType(str, Enum):
+    OPENING_BALANCE = "OPENING_BALANCE"
+    OPENING_BALANCE_CORRECTION = "OPENING_BALANCE_CORRECTION"
+    PRODUCTION_INBOUND = "PRODUCTION_INBOUND"
+    PRODUCTION_ISSUE = "PRODUCTION_ISSUE"
+    RECEIPT = "RECEIPT"
+    SHIPMENT_OUTBOUND = "SHIPMENT_OUTBOUND"
+    SHIPMENT_CANCEL_REVERSAL = "SHIPMENT_CANCEL_REVERSAL"
+    WASTE_INBOUND = "WASTE_INBOUND"
+    WASTE_SALE_OUTBOUND = "WASTE_SALE_OUTBOUND"
+    PACKAGING_INBOUND = "PACKAGING_INBOUND"
+    PACKAGING_ISSUE_OUTBOUND = "PACKAGING_ISSUE_OUTBOUND"
+    ADJUSTMENT_POSITIVE = "ADJUSTMENT_POSITIVE"
+    ADJUSTMENT_NEGATIVE = "ADJUSTMENT_NEGATIVE"
+
+
+class WasteType(str, Enum):
+    ST_3 = "ST_3"
+    ST_7_11 = "ST_7_11"
+    ST_1 = "ST_1"
+    ST_36 = "ST_36"
+    ST_98 = "ST_98"
+    MYCHKA = "MYCHKA"
+    ROVNITSA = "ROVNITSA"
+
+
+class PackagingItemType(str, Enum):
+    BAG = "BAG"
+    CONE = "CONE"
+    PACKAGE = "PACKAGE"
+    CORRUGATED_SHEET = "CORRUGATED_SHEET"
+    PARAFFIN = "PARAFFIN"
+    BOX = "BOX"
+
+
+class AuditAction(str, Enum):
+    CREATE = "CREATE"
+    UPDATE = "UPDATE"
+    DELETE = "DELETE"
+    SUBMIT = "SUBMIT"
+    CLOSE = "CLOSE"
+    REOPEN = "REOPEN"
+    CANCEL = "CANCEL"
+    MERGE = "MERGE"
+    POST = "POST"
+    ADJUST = "ADJUST"
+    BLOCK = "BLOCK"
+    ACTIVATE = "ACTIVATE"
+    DEACTIVATE = "DEACTIVATE"
+
+
+class LineCategory(str, Enum):
+    PRODUCTION_INBOUND = "PRODUCTION_INBOUND"
+    RECEIPT = "RECEIPT"
+    PRODUCTION_ISSUE = "PRODUCTION_ISSUE"
+    SALE_OUTBOUND = "SALE_OUTBOUND"
+    PACKAGING_ISSUE = "PACKAGING_ISSUE"
+
+
+class ReferenceType(str, Enum):
+    DAILY_REPORT = "DAILY_REPORT"
+    SHIPMENT = "SHIPMENT"
+    ADJUSTMENT = "ADJUSTMENT"
+    OPENING_BALANCE = "OPENING_BALANCE"
+
+
+# Roles that have read-only dashboard access (no warehouse operations)
+READ_ONLY_ROLES = frozenset({UserRole.DIRECTOR})
+
+# Roles that can manage (but not all admin actions)
+MANAGEMENT_ROLES = frozenset({UserRole.ADMIN, UserRole.DEPUTY_DIRECTOR})
+
+# Warehouse roles
+WAREHOUSE_ROLES = frozenset({UserRole.WH_RAW, UserRole.WH_FINISHED})

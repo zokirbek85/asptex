@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"C:\\\\Users\\\\Zalman\\\\.claude\\\\projects\\\\d--Project-new-asptex\\\\memory\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Zalman\\.claude\\projects\\d--Project-new-asptex"
+    ]
+  }
+}
