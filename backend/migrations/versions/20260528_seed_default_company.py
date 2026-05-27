@@ -18,22 +18,22 @@ def upgrade():
     conn = op.get_bind()
     conn.execute(sa.text("""
     DO $$
-    DECLARE admin_id uuid;
-    company_id uuid;
+    DECLARE admin_uuid uuid;
+    company_uuid uuid;
     BEGIN
-      SELECT id INTO admin_id FROM users WHERE username='admin';
-      IF admin_id IS NULL THEN
+      SELECT id INTO admin_uuid FROM users WHERE username='admin';
+      IF admin_uuid IS NULL THEN
         RETURN;
       END IF;
-      SELECT id INTO company_id FROM companies WHERE name='Default Company';
-      IF company_id IS NULL THEN
+      SELECT id INTO company_uuid FROM companies WHERE name='Default Company';
+      IF company_uuid IS NULL THEN
         INSERT INTO companies (id, name, short_name, is_active)
         VALUES (gen_random_uuid(), 'Default Company', 'Default', true)
-        RETURNING id INTO company_id;
+        RETURNING id INTO company_uuid;
       END IF;
-      IF NOT EXISTS (SELECT 1 FROM user_company_roles WHERE user_id=admin_id AND company_id=company_id) THEN
+      IF NOT EXISTS (SELECT 1 FROM user_company_roles WHERE user_id=admin_uuid AND company_id=company_uuid) THEN
         INSERT INTO user_company_roles (id, user_id, company_id, role, is_active, created_by)
-        VALUES (gen_random_uuid(), admin_id, company_id, 'ADMIN', true, admin_id);
+        VALUES (gen_random_uuid(), admin_uuid, company_uuid, 'ADMIN', true, admin_uuid);
       END IF;
     END$$;
     """))
@@ -43,18 +43,18 @@ def downgrade():
     conn = op.get_bind()
     conn.execute(sa.text("""
     DO $$
-    DECLARE admin_id uuid;
-    company_id uuid;
+    DECLARE admin_uuid uuid;
+    company_uuid uuid;
     BEGIN
-      SELECT id INTO admin_id FROM users WHERE username='admin';
-      IF admin_id IS NULL THEN
+      SELECT id INTO admin_uuid FROM users WHERE username='admin';
+      IF admin_uuid IS NULL THEN
         RETURN;
       END IF;
-      SELECT id INTO company_id FROM companies WHERE name='Default Company';
-      IF company_id IS NULL THEN
+      SELECT id INTO company_uuid FROM companies WHERE name='Default Company';
+      IF company_uuid IS NULL THEN
         RETURN;
       END IF;
-      DELETE FROM user_company_roles WHERE user_id=admin_id AND company_id=company_id;
-      DELETE FROM companies WHERE id=company_id;
+      DELETE FROM user_company_roles WHERE user_id=admin_uuid AND company_id=company_uuid;
+      DELETE FROM companies WHERE id=company_uuid;
     END$$;
     """))
