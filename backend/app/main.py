@@ -17,6 +17,13 @@ from app.core.middleware import RequestContextMiddleware
 
 # ── Router imports ────────────────────────────────────────────────────────────
 from app.modules.auth.router import router as auth_router
+from app.modules.company.router import router as company_router
+from app.modules.counterparty.router import router as counterparty_router
+from app.modules.contract.router import router as contract_router
+from app.modules.count_catalog.router import router as count_router
+from app.modules.lot.router import router as lot_router
+from app.modules.user.router import router as user_router
+from app.modules.warehouse.router import router as warehouse_router
 
 
 @asynccontextmanager
@@ -99,6 +106,13 @@ async def app_error_handler(request: Request, exc: AppException) -> JSONResponse
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 app.include_router(auth_router, prefix="/api/v1")
+app.include_router(company_router, prefix="/api/v1")
+app.include_router(user_router, prefix="/api/v1")
+app.include_router(warehouse_router, prefix="/api/v1")
+app.include_router(counterparty_router, prefix="/api/v1")
+app.include_router(contract_router, prefix="/api/v1")
+app.include_router(count_router, prefix="/api/v1")
+app.include_router(lot_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["health"])

@@ -3,15 +3,14 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.exceptions import AuthenticationError, NotFoundError, PermissionDeniedError
 from app.core.security import (
     create_access_token,
     create_refresh_token,
-    hash_password,
     hash_token,
     verify_password,
 )
-from app.core.config import settings
 from app.modules.auth.models import RefreshToken, User
 from app.modules.auth.repository import RefreshTokenRepository, UserRepository
 from app.modules.auth.schemas import (
@@ -70,10 +69,9 @@ class AuthService:
             raise AuthenticationError("Account is deactivated")
 
         raw_refresh = create_refresh_token()
-        token_hash = hash_token(raw_refresh)
         refresh_token = RefreshToken(
             user_id=user.id,
-            token_hash=token_hash,
+            token_hash=hash_token(raw_refresh),
             expires_at=datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
             ip_address=ip_address,
             user_agent=user_agent,
@@ -81,8 +79,12 @@ class AuthService:
         self.session.add(refresh_token)
         await self.session.flush()
 
-        # Access token without company context (user selects company next)
-        access_token = create_access_token(user_id=user.id)
+        # Initial token has no company context — user picks company next
+        access_token = create_access_token(
+            user_id=user.id,
+            username=user.username,
+            full_name=user.full_name,
+        )
 
         return TokenResponse(
             access_token=access_token,
@@ -91,15 +93,11 @@ class AuthService:
             companies=_build_company_list(user),
         )
 
-    async def switch_company(
-        self, user_id: uuid.UUID, company_id: uuid.UUID
-    ) -> AccessTokenResponse:
-        """Re-issue access token with company context embedded in claims."""
+    async def switch_company(self, user_id: uuid.UUID, company_id: uuid.UUID) -> AccessTokenResponse:
         user = await self._user_repo.get_with_roles(user_id)
         if user is None:
             raise NotFoundError("User", user_id)
 
-        # Find the active role for this company
         role_entry: UserCompanyRole | None = next(
             (r for r in user.company_roles if r.company_id == company_id and r.is_active),
             None,
@@ -109,6 +107,8 @@ class AuthService:
 
         access_token = create_access_token(
             user_id=user.id,
+            username=user.username,
+            full_name=user.full_name,
             company_id=company_id,
             role=role_entry.role.value,
             warehouse_id=role_entry.warehouse_id,
@@ -125,7 +125,6 @@ class AuthService:
         if user is None or not user.is_active:
             raise AuthenticationError("User not found or deactivated")
 
-        # Rotate: revoke old, issue new access token (no new refresh token on refresh)
         await self._token_repo.revoke(token_record)
 
         company_id = token_record.company_id
@@ -142,6 +141,8 @@ class AuthService:
 
         access_token = create_access_token(
             user_id=user.id,
+            username=user.username,
+            full_name=user.full_name,
             company_id=company_id,
             role=role.value if role else None,
             warehouse_id=warehouse_id,

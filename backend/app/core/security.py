@@ -22,12 +22,16 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(
     user_id: uuid.UUID,
+    username: str,
+    full_name: str,
     company_id: uuid.UUID | None = None,
     role: str | None = None,
     warehouse_id: uuid.UUID | None = None,
 ) -> str:
     payload: dict[str, Any] = {
         "sub": str(user_id),
+        "username": username,
+        "full_name": full_name,
         "type": "access",
         "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
         "iat": datetime.now(timezone.utc),
