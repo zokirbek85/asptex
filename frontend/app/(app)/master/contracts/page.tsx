@@ -49,7 +49,7 @@ export default function ContractsPage() {
 
   const { data: counterparties } = useQuery({
     queryKey: ["counterparties-all"],
-    queryFn: () => counterpartyApi.list({ page_size: 500, active_only: true }),
+    queryFn: () => counterpartyApi.list({ page_size: 200, active_only: true }),
   });
 
   const cpOptions = (counterparties?.items ?? []).map(cp => ({ value: cp.id, label: cp.name }));

@@ -10,6 +10,7 @@ from app.core.exceptions import (
     AppException,
     AuthenticationError,
     BusinessRuleViolationError,
+    NegativeStockBlockedError,
     NotFoundError,
     PermissionDeniedError,
 )
@@ -24,13 +25,27 @@ from app.modules.count_catalog.router import router as count_router
 from app.modules.lot.router import router as lot_router
 from app.modules.user.router import router as user_router
 from app.modules.warehouse.router import router as warehouse_router
-import app.modules.shipment.models  # ensure Shipment model is registered
-import app.modules.user.models  # ensure User and related models are registered
-import app.modules.company.models  # ensure Company model is registered
-import app.modules.contract.models  # ensure Contract model is registered
-import app.modules.counterparty.models  # ensure Counterparty model is registered
-import app.modules.warehouse.models  # ensure Warehouse model is registered
-import app.modules.auth.models  # ensure Auth models are registered
+from app.modules.daily_report.router import router as daily_report_router
+from app.modules.shipment.router import router as shipment_router
+from app.modules.adjustment.router import router as adjustment_router
+from app.modules.finished_goods.router import router as finished_goods_router
+from app.modules.raw_cotton.router import router as raw_cotton_router
+from app.modules.waste.router import router as waste_router
+from app.modules.packaging.router import router as packaging_router
+from app.modules.dashboard.router import router as dashboard_router
+from app.modules.export.router import router as export_router
+from app.modules.audit.router import router as audit_router
+
+import app.modules.shipment.models
+import app.modules.user.models
+import app.modules.company.models
+import app.modules.contract.models
+import app.modules.counterparty.models
+import app.modules.warehouse.models
+import app.modules.auth.models
+import app.modules.daily_report.models
+import app.modules.stock.models
+import app.modules.adjustment.models
 
 
 @asynccontextmanager
@@ -95,6 +110,14 @@ async def exists_handler(request: Request, exc: AlreadyExistsError) -> JSONRespo
     )
 
 
+@app.exception_handler(NegativeStockBlockedError)
+async def negative_stock_handler(request: Request, exc: NegativeStockBlockedError) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content={"detail": exc.message, "code": exc.code},
+    )
+
+
 @app.exception_handler(BusinessRuleViolationError)
 async def business_rule_handler(request: Request, exc: BusinessRuleViolationError) -> JSONResponse:
     return JSONResponse(
@@ -120,6 +143,16 @@ app.include_router(counterparty_router, prefix="/api/v1")
 app.include_router(contract_router, prefix="/api/v1")
 app.include_router(count_router, prefix="/api/v1")
 app.include_router(lot_router, prefix="/api/v1")
+app.include_router(daily_report_router, prefix="/api/v1")
+app.include_router(shipment_router, prefix="/api/v1")
+app.include_router(adjustment_router, prefix="/api/v1")
+app.include_router(finished_goods_router, prefix="/api/v1")
+app.include_router(raw_cotton_router, prefix="/api/v1")
+app.include_router(waste_router, prefix="/api/v1")
+app.include_router(packaging_router, prefix="/api/v1")
+app.include_router(dashboard_router, prefix="/api/v1")
+app.include_router(export_router, prefix="/api/v1")
+app.include_router(audit_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["health"])

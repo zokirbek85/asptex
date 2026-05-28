@@ -7,15 +7,17 @@ import { toast } from "sonner";
 import { authApi } from "@/lib/api/auth";
 import { useAuthStore } from "@/lib/stores/auth";
 import type { UserRole } from "@/lib/types";
+import { AsptexLogo } from "@/components/brand/AsptexLogo";
+import { cn } from "@/lib/utils";
 
 const ROLE_LABELS: Record<UserRole, { uz: string; ru: string }> = {
-  ADMIN: { uz: "Administrator", ru: "Администратор" },
-  DIRECTOR: { uz: "Direktor", ru: "Директор" },
-  DEPUTY_DIRECTOR: { uz: "Direktor muovini", ru: "Зам. директора" },
-  WH_RAW: { uz: "Xom ashyo ombori", ru: "Склад сырья" },
-  WH_FINISHED: { uz: "Tayyor mahsulot ombori", ru: "Склад готовой продукции" },
-  PRODUCTION: { uz: "Ishlab chiqarish", ru: "Производство" },
-  ACCOUNTANT: { uz: "Buxgalter", ru: "Бухгалтер" },
+  ADMIN:           { uz: "Administrator",             ru: "Администратор" },
+  DIRECTOR:        { uz: "Direktor",                  ru: "Директор" },
+  DEPUTY_DIRECTOR: { uz: "Direktor muovini",          ru: "Зам. директора" },
+  WH_RAW:          { uz: "Xom ashyo ombori",          ru: "Склад сырья" },
+  WH_FINISHED:     { uz: "Tayyor mahsulot ombori",    ru: "Склад готовой продукции" },
+  PRODUCTION:      { uz: "Ishlab chiqarish",          ru: "Производство" },
+  ACCOUNTANT:      { uz: "Buxgalter",                 ru: "Бухгалтер" },
 };
 
 export default function SelectCompanyPage() {
@@ -24,9 +26,7 @@ export default function SelectCompanyPage() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      router.replace("/login");
-    }
+    if (!user) router.replace("/login");
   }, [user, router]);
 
   const handleSelectCompany = async (companyId: string, role: UserRole) => {
@@ -42,42 +42,58 @@ export default function SelectCompanyPage() {
     }
   };
 
-  const t = (uz: string, ru: string) => language === "uz" ? uz : ru;
+  const t = (uz: string, ru: string) => (language === "uz" ? uz : ru);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <div className="text-center mb-6">
-            <h1 className="text-xl font-bold text-slate-900">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="w-full max-w-[400px] animate-fade-in">
+        {/* Logo */}
+        <div className="mb-8 flex justify-center">
+          <AsptexLogo variant="full" size={34} />
+        </div>
+
+        <div className="glass-card rounded-xl p-6">
+          <div className="mb-5 text-center">
+            <h1 className="text-[17px] font-bold text-foreground">
               {t("Kompaniyani tanlang", "Выберите компанию")}
             </h1>
-            <p className="text-slate-500 text-sm mt-1">
-              {user?.full_name}
-            </p>
+            <p className="mt-1 text-[13px] text-foreground-muted">{user?.full_name}</p>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {companies.map((company) => (
               <button
                 key={company.id}
                 onClick={() => handleSelectCompany(company.id, company.role)}
                 disabled={!!loadingId}
-                className="w-full flex items-center gap-4 p-4 border border-slate-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all group disabled:opacity-50"
+                className={cn(
+                  "group w-full flex items-center gap-3.5 rounded-xl border border-border p-3.5",
+                  "hover:border-primary hover:bg-primary-light transition-all duration-150",
+                  "disabled:opacity-50 disabled:cursor-not-allowed"
+                )}
               >
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200">
-                  <Building2 size={20} className="text-blue-600" />
+                <div
+                  className={cn(
+                    "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg",
+                    "bg-primary-light text-primary group-hover:bg-primary group-hover:text-white",
+                    "transition-colors"
+                  )}
+                >
+                  <Building2 size={18} />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="font-medium text-slate-900">{company.name}</p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-[14px] font-semibold text-foreground">{company.name}</p>
+                  <p className="text-[12px] text-foreground-muted">
                     {ROLE_LABELS[company.role]?.[language] || company.role}
                   </p>
                 </div>
                 {loadingId === company.id ? (
-                  <Loader2 size={18} className="text-blue-600 animate-spin" />
+                  <Loader2 size={16} className="text-primary animate-spin flex-shrink-0" />
                 ) : (
-                  <ChevronRight size={18} className="text-slate-400 group-hover:text-blue-600" />
+                  <ChevronRight
+                    size={16}
+                    className="flex-shrink-0 text-foreground-subtle group-hover:text-primary transition-colors"
+                  />
                 )}
               </button>
             ))}
@@ -85,9 +101,9 @@ export default function SelectCompanyPage() {
 
           <button
             onClick={() => { clearAuth(); router.push("/login"); }}
-            className="w-full mt-4 text-sm text-slate-500 hover:text-slate-700 py-2"
+            className="mt-4 w-full py-2 text-[12px] text-foreground-muted hover:text-foreground transition-colors"
           >
-            {t("Chiqish", "Выйти")}
+            {t("Boshqa akkaunt bilan kirish", "Войти с другим аккаунтом")}
           </button>
         </div>
       </div>

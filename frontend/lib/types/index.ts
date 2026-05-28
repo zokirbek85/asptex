@@ -69,9 +69,11 @@ export type WarehouseType = "RAW_COTTON" | "FINISHED_GOODS" | "WASTE" | "PACKAGI
 export type LotStatus = "OPEN" | "CLOSED" | "BLOCKED";
 export type ReportStatus = "DRAFT" | "SUBMITTED" | "CLOSED";
 export type ShipmentStatus = "ACTIVE" | "PARTIALLY_CANCELLED" | "CANCELLED";
+export type AdjustmentStatus = "DRAFT" | "POSTED";
 export type WasteType = "ST_3" | "ST_7_11" | "ST_1" | "ST_36" | "ST_98" | "MYCHKA" | "ROVNITSA";
 export type PackagingItemType = "BAG" | "CONE" | "PACKAGE" | "CORRUGATED_SHEET" | "PARAFFIN" | "BOX";
 export type CounterpartyType = "BUYER" | "TOLLING_OWNER" | "BOTH";
+export type LineCategory = "PRODUCTION_INBOUND" | "RECEIPT" | "PRODUCTION_ISSUE" | "SALE_OUTBOUND" | "PACKAGING_ISSUE";
 
 // ── Company ───────────────────────────────────────────────────────────────────
 

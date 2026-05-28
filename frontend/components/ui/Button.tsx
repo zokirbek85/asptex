@@ -2,24 +2,41 @@
 
 import { cva, type VariantProps } from "class-variance-authority";
 import { Slot } from "@radix-ui/react-slot";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  [
+    "inline-flex items-center justify-center gap-1.5 rounded-[9px] text-[13px] font-semibold",
+    "transition-all duration-150 active:scale-[0.98]",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+    "disabled:pointer-events-none disabled:opacity-50 select-none",
+  ].join(" "),
   {
     variants: {
       variant: {
-        default: "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500",
-        secondary: "bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-gray-400",
-        outline: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus-visible:ring-gray-400",
-        danger: "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500",
-        ghost: "hover:bg-gray-100 text-gray-700 focus-visible:ring-gray-400",
+        default:
+          "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
+        secondary:
+          "bg-muted text-foreground hover:bg-muted/80 border border-border",
+        outline:
+          "border border-border bg-transparent text-foreground hover:bg-muted",
+        danger:
+          "bg-danger text-white hover:bg-danger/90 shadow-sm",
+        ghost:
+          "text-foreground-muted hover:bg-muted hover:text-foreground",
+        success:
+          "bg-success text-white hover:bg-success/90 shadow-sm",
+        teal:
+          "bg-secondary text-white hover:bg-secondary/90 shadow-sm",
       },
       size: {
-        sm: "h-8 px-3 text-xs",
+        xs: "h-7 px-2.5 text-[12px] gap-1",
+        sm: "h-8 px-3 text-[12px]",
         md: "h-9 px-4",
-        lg: "h-10 px-6",
-        icon: "h-9 w-9",
+        lg: "h-10 px-5 text-[14px]",
+        icon: "h-9 w-9 p-0",
+        "icon-sm": "h-7 w-7 p-0",
       },
     },
     defaultVariants: { variant: "default", size: "md" },
@@ -50,15 +67,14 @@ export function Button({
       disabled={disabled || loading}
       {...props}
     >
-      {loading ? (
+      {asChild ? (
+        children
+      ) : (
         <>
-          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-          </svg>
+          {loading && <Loader2 size={14} className="animate-spin" />}
           {children}
         </>
-      ) : children}
+      )}
     </Comp>
   );
 }

@@ -4,24 +4,101 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    /* ── ASPTEX Light Theme ─────────────────────────────── */
+    --background:        213 25% 96%;   /* #F2F5F7 */
+    --surface:           0 0% 100%;     /* #FFFFFF */
+    --surface-raised:    0 0% 100%;
+    --foreground:        215 40% 12%;   /* #0D1E33 */
+    --foreground-muted:  215 20% 42%;   /* #5A6F88 */
+    --foreground-subtle: 215 15% 62%;   /* #8A9BB0 */
+
+    --primary:           214 82% 42%;   /* #1565C0 */
+    --primary-light:     214 82% 96%;   /* #EBF2FF */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary:         168 100% 33%;  /* #00A88E */
+    --secondary-light:   168 100% 95%;  /* #E6FAF7 */
+    --secondary-foreground: 0 0% 100%;
+
+    --accent:            165 60% 65%;   /* #6FDBC4 */
+    --accent-foreground: 215 40% 12%;
+
+    --success:           152 82% 40%;   /* #12C27A */
+    --success-light:     152 82% 95%;
+    --warning:           44 96% 48%;    /* #F5B301 */
+    --warning-light:     44 96% 95%;
+    --danger:            358 74% 58%;   /* #E5484D */
+    --danger-light:      358 74% 96%;
+
+    --card:              0 0% 100%;
+    --card-foreground:   215 40% 12%;
+    --card-border:       213 30% 89%;
+
+    --border:            213 30% 89%;
+    --border-strong:     213 25% 78%;
+    --input:             213 30% 89%;
+    --ring:              214 82% 42%;
+
+    --muted:             213 25% 94%;
+    --muted-foreground:  215 20% 42%;
+
+    --sidebar-bg:        215 50% 14%;   /* #0D2240 */
+    --sidebar-active:    214 82% 42%;
+    --sidebar-text:      213 40% 72%;
+    --sidebar-text-active: 0 0% 100%;
+    --sidebar-hover:     215 50% 20%;
+    --sidebar-border:    215 50% 20%;
+
+    --radius:            0.875rem;
+    --radius-sm:         0.5rem;
+    --radius-lg:         1.125rem;
+  }
+
+  .dark {
+    /* ── ASPTEX Dark Theme ─────────────────────────────── */
+    --background:        218 54% 8%;    /* #07111F */
+    --surface:           220 50% 11%;   /* #0B1628 */
+    --surface-raised:    220 46% 14%;   /* #0F1C2E */
+    --foreground:        213 40% 94%;   /* #E8EFF7 */
+    --foreground-muted:  213 30% 68%;   /* #8FA3BC */
+    --foreground-subtle: 213 25% 48%;   /* #5C7490 */
+
+    --primary:           214 82% 56%;   /* #2979D9 */
+    --primary-light:     214 60% 18%;   /* #0F2A4A */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary:         168 80% 42%;   /* #12BFA0 */
+    --secondary-light:   168 60% 15%;
+    --secondary-foreground: 0 0% 100%;
+
+    --accent:            165 55% 62%;   /* #6CD5BE */
+    --accent-foreground: 218 54% 8%;
+
+    --success:           152 70% 48%;   /* #1FD68A */
+    --success-light:     152 50% 14%;
+    --warning:           44 90% 54%;    /* #F7C234 */
+    --warning-light:     44 70% 14%;
+    --danger:            358 72% 62%;   /* #ED5257 */
+    --danger-light:      358 60% 14%;
+
+    --card:              220 50% 11%;   /* #0B1628 */
+    --card-foreground:   213 40% 94%;
+    --card-border:       220 40% 20%;   /* #162640 */
+
+    --border:            220 40% 20%;
+    --border-strong:     220 38% 28%;
+    --input:             220 40% 18%;
+    --ring:              214 82% 56%;
+
+    --muted:             220 46% 16%;
+    --muted-foreground:  213 30% 55%;
+
+    --sidebar-bg:        218 60% 6%;    /* #050E1A */
+    --sidebar-active:    214 82% 56%;
+    --sidebar-text:      213 30% 55%;
+    --sidebar-text-active: 0 0% 100%;
+    --sidebar-hover:     220 50% 12%;
+    --sidebar-border:    220 45% 12%;
   }
 }
 
@@ -30,13 +107,77 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { @apply bg-muted; }
-::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
-::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground; }
+/* ── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border-strong));
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--foreground-subtle));
+}
+
+/* ── Glass card effect ─────────────────────────────────── */
+.glass-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--card-border));
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+}
+.dark .glass-card {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04) inset;
+}
+
+/* ── Sidebar nav active glow ───────────────────────────── */
+.dark .nav-active {
+  box-shadow: 0 0 12px rgba(41,121,217,0.25);
+}
+
+/* ── KPI card gradient ─────────────────────────────────── */
+.kpi-gradient-blue {
+  background: linear-gradient(135deg, hsl(214,82%,42%) 0%, hsl(214,82%,32%) 100%);
+}
+.kpi-gradient-teal {
+  background: linear-gradient(135deg, hsl(168,100%,33%) 0%, hsl(168,100%,25%) 100%);
+}
+.kpi-gradient-purple {
+  background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%);
+}
+.kpi-gradient-amber {
+  background: linear-gradient(135deg, hsl(44,96%,48%) 0%, hsl(44,96%,38%) 100%);
+}
+
+/* ── Table styling ─────────────────────────────────────── */
+.erp-table thead tr {
+  background: hsl(var(--muted));
+}
+.erp-table tbody tr:hover {
+  background: hsl(var(--muted) / 0.6);
+}
+.dark .erp-table thead tr {
+  background: hsl(var(--surface-raised));
+}
+
+/* ── Input focus ring ──────────────────────────────────── */
+.asptex-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.3);
+  border-color: hsl(var(--primary));
+}
+
+/* ── Animations ────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.18s ease-out both;
+}
