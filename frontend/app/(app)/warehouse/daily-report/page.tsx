@@ -146,7 +146,7 @@ function LineRow({
     </button>
   );
 
-  if (warehouseType === "FINISHED_GOODS" || warehouseType === "RAW_COTTON") {
+  if (warehouseType === "FINISHED_GOODS") {
     return (
       <div className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
         <div className="w-44 shrink-0">
@@ -176,25 +176,79 @@ function LineRow({
           />
         </div>
         {commonQty}
-        {warehouseType === "FINISHED_GOODS" ? (
-          <div className="w-24 shrink-0">
-            <Input
-              label="Qoplar"
-              type="number" min="0"
-              value={line.quantity_bags ?? ""}
-              onChange={(e) => patch({ quantity_bags: parseInt(e.target.value) || null })}
-            />
-          </div>
-        ) : (
-          <div className="w-28 shrink-0">
-            <Input
-              label="Kip"
-              type="number" step="0.001" min="0"
-              value={line.quantity_kip ?? ""}
-              onChange={(e) => patch({ quantity_kip: parseFloat(e.target.value) || null })}
-            />
-          </div>
-        )}
+        <div className="w-24 shrink-0">
+          <Input
+            label="Qoplar"
+            type="number" min="0"
+            value={line.quantity_bags ?? ""}
+            onChange={(e) => patch({ quantity_bags: parseInt(e.target.value) || null })}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <Input
+            label="Izoh"
+            value={line.notes ?? ""}
+            onChange={(e) => patch({ notes: e.target.value || null })}
+          />
+        </div>
+        {removeBtn}
+      </div>
+    );
+  }
+
+  if (warehouseType === "RAW_COTTON" && line.line_category === "RECEIPT") {
+    return (
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
+        <div className="w-44 shrink-0">
+          <Select
+            label="Egasi (bo'sh = o'z)"
+            value={line.owner_id ?? ""}
+            onValueChange={(v) => patch({ owner_id: v || null })}
+            options={[{ value: "", label: "O'z (own)" }, ...counterparties]}
+          />
+        </div>
+        {commonQty}
+        <div className="w-28 shrink-0">
+          <Input
+            label="Kip"
+            type="number" step="0.001" min="0"
+            value={line.quantity_kip ?? ""}
+            onChange={(e) => patch({ quantity_kip: parseFloat(e.target.value) || null })}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <Input
+            label="Izoh"
+            value={line.notes ?? ""}
+            onChange={(e) => patch({ notes: e.target.value || null })}
+          />
+        </div>
+        {removeBtn}
+      </div>
+    );
+  }
+
+  if (warehouseType === "RAW_COTTON" && line.line_category === "PRODUCTION_ISSUE") {
+    return (
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
+        <div className="w-44 shrink-0">
+          <Select
+            label="Lot (tayyor mahsulot)"
+            value={line.lot_id ?? ""}
+            onValueChange={(v) => patch({ lot_id: v || null })}
+            options={lots}
+            placeholder="Lot tanlang..."
+          />
+        </div>
+        <div className="w-44 shrink-0">
+          <Select
+            label="Egasi (bo'sh = o'z)"
+            value={line.owner_id ?? ""}
+            onValueChange={(v) => patch({ owner_id: v || null })}
+            options={[{ value: "", label: "O'z (own)" }, ...counterparties]}
+          />
+        </div>
+        {commonQty}
         <div className="min-w-0 flex-1">
           <Input
             label="Izoh"
@@ -309,6 +363,7 @@ export default function DailyReportPage() {
   const whType = selectedWarehouse?.warehouse_type as WarehouseType | undefined;
 
   const needsLots = whType === "FINISHED_GOODS" || whType === "RAW_COTTON";
+  const needsCounts = whType === "FINISHED_GOODS";
 
   const { data: lotsData } = useQuery({
     queryKey: ["lots-open"],
@@ -323,7 +378,7 @@ export default function DailyReportPage() {
   const { data: countsData } = useQuery({
     queryKey: ["counts-active"],
     queryFn: () => countApi.list({ active_only: true, page_size: 200 }),
-    enabled: needsLots,
+    enabled: needsCounts,
   });
   const countOptions = (countsData?.items ?? []).map((c) => ({
     value: c.id,
@@ -444,6 +499,8 @@ export default function DailyReportPage() {
       ? [{ accessorKey: "waste_type" as const, header: "Tur", cell: ({ getValue }: any) => getValue() || "—" }]
       : whType === "PACKAGING"
       ? [{ accessorKey: "pkg_item_type" as const, header: "Tur", cell: ({ getValue }: any) => getValue() || "—" }]
+      : whType === "RAW_COTTON"
+      ? [{ accessorKey: "owner_name" as const, header: t("Egasi", "Владелец"), cell: ({ getValue }: any) => getValue() || t("O'z", "Своё") }]
       : [
           { accessorKey: "lot_number" as const, header: "Lot", cell: ({ getValue }: any) => <span className="font-mono font-semibold">{getValue() || "—"}</span> },
           { accessorKey: "count_value" as const, header: "Count", cell: ({ getValue }: any) => getValue() || "—" },

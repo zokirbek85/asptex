@@ -61,6 +61,9 @@ class TransactionType(str, Enum):
     PACKAGING_ISSUE_OUTBOUND = "PACKAGING_ISSUE_OUTBOUND"
     ADJUSTMENT_POSITIVE = "ADJUSTMENT_POSITIVE"
     ADJUSTMENT_NEGATIVE = "ADJUSTMENT_NEGATIVE"
+    TOLLING_OWNER_INBOUND = "TOLLING_OWNER_INBOUND"
+    TOLLING_FEE_INBOUND = "TOLLING_FEE_INBOUND"
+    TOLLING_RAW_RECEIPT = "TOLLING_RAW_RECEIPT"
 
 
 class WasteType(str, Enum):
@@ -80,6 +83,21 @@ class PackagingItemType(str, Enum):
     CORRUGATED_SHEET = "CORRUGATED_SHEET"
     PARAFFIN = "PARAFFIN"
     BOX = "BOX"
+
+
+class TollingLotStatus(str, Enum):
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+
+
+class TollingDistributionStatus(str, Enum):
+    DRAFT = "DRAFT"
+    CONFIRMED = "CONFIRMED"
+
+
+class TollingLineType(str, Enum):
+    OWNER_NET = "OWNER_NET"
+    PROCESSOR_FEE = "PROCESSOR_FEE"
 
 
 class AuditAction(str, Enum):

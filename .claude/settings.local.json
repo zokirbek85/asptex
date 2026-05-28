@@ -13,7 +13,12 @@
       "Bash(docker port *)",
       "Bash(docker inspect *)",
       "Bash(docker compose *)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost/health)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost/health)",
+      "Bash(npm install *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Project\\\\new\\\\asptex\\\\backend\" -Recurse -Filter \"*.py\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Project\\\\new\\\\asptex\\\\frontend\" -Recurse -Filter \"*.ts\" -o -Filter \"*.tsx\")",
+      "Bash(docker restart *)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Zalman\\.claude\\projects\\d--Project-new-asptex"

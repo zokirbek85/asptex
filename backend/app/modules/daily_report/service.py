@@ -30,6 +30,7 @@ from app.shared.enums import (
     LineCategory,
     ReportStatus,
     TransactionType,
+    WarehouseType,
 )
 from app.shared.schemas import PaginatedResponse
 
@@ -183,6 +184,11 @@ class DailyReportService:
         if prev is not None and prev.status != ReportStatus.CLOSED:
             raise PreviousDayNotClosedError(str(report.report_date - timedelta(days=1)))
 
+        # Load warehouse type to apply raw-cotton stock rules
+        from app.modules.warehouse.models import Warehouse as WarehouseModel
+        wh = await self.session.get(WarehouseModel, report.warehouse_id)
+        is_raw_cotton = wh is not None and wh.warehouse_type == WarehouseType.RAW_COTTON
+
         # Replace lines with submitted set
         lines_dicts = [
             {
@@ -224,11 +230,19 @@ class DailyReportService:
                 notes=line.notes,
             ))
             delta_kg = Decimal(str(line.quantity_kg)) * direction
+            # Raw cotton is received without a lot (lot_id=NULL). When issuing
+            # to production, the line's lot_id is the target FG lot (informational)
+            # but the stock deduction must match the receipt's lot_id=NULL bucket.
+            stock_lot_id = (
+                None
+                if is_raw_cotton and line.line_category == LineCategory.PRODUCTION_ISSUE
+                else line.lot_id
+            )
             await self.stock_svc.check_balance_and_warn(
                 company_id=report.company_id,
                 warehouse_id=report.warehouse_id,
                 delta_kg=delta_kg,
-                lot_id=line.lot_id,
+                lot_id=stock_lot_id,
                 count_id=line.count_id,
                 owner_id=line.owner_id,
                 waste_type=line.waste_type,
@@ -246,7 +260,7 @@ class DailyReportService:
                 reference_type="DAILY_REPORT",
                 reference_id=report.id,
                 reference_line_id=line.id,
-                lot_id=line.lot_id,
+                lot_id=stock_lot_id,
                 count_id=line.count_id,
                 owner_id=line.owner_id,
                 waste_type=line.waste_type,

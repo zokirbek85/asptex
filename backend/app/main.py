@@ -35,6 +35,8 @@ from app.modules.packaging.router import router as packaging_router
 from app.modules.dashboard.router import router as dashboard_router
 from app.modules.export.router import router as export_router
 from app.modules.audit.router import router as audit_router
+from app.modules.opening_balance.router import router as opening_balance_router
+from app.modules.tolling.router import router as tolling_router
 
 import app.modules.shipment.models
 import app.modules.user.models
@@ -46,6 +48,8 @@ import app.modules.auth.models
 import app.modules.daily_report.models
 import app.modules.stock.models
 import app.modules.adjustment.models
+import app.modules.opening_balance.models
+import app.modules.tolling.models
 
 
 @asynccontextmanager
@@ -153,6 +157,8 @@ app.include_router(packaging_router, prefix="/api/v1")
 app.include_router(dashboard_router, prefix="/api/v1")
 app.include_router(export_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
+app.include_router(opening_balance_router, prefix="/api/v1")
+app.include_router(tolling_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["health"])

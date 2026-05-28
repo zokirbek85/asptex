@@ -13,10 +13,12 @@ import {
   FileText,
   LayoutDashboard,
   Package,
+  Scale,
   Ship,
   SlidersHorizontal,
   Users,
   Wheat,
+  Layers,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth";
 import type { UserRole } from "@/lib/types";
@@ -99,8 +101,37 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: { uz: "Tolling", ru: "Толлинг" },
+    items: [
+      {
+        href: "/tolling/active-lot",
+        label: { uz: "Aktiv Lot", ru: "Активный лот" },
+        icon: <Layers size={17} />,
+        roles: ["ADMIN", "DIRECTOR", "DEPUTY_DIRECTOR", "ACCOUNTANT", "WH_FINISHED"],
+      },
+      {
+        href: "/tolling/distributions",
+        label: { uz: "Taqsimotlar", ru: "Распределения" },
+        icon: <ClipboardList size={17} />,
+        roles: ["ADMIN", "DIRECTOR", "DEPUTY_DIRECTOR", "ACCOUNTANT", "WH_FINISHED"],
+      },
+      {
+        href: "/tolling/reports/lot-summary",
+        label: { uz: "Lot xulosasi", ru: "Сводка лота" },
+        icon: <BarChart3 size={17} />,
+        roles: ["ADMIN", "DIRECTOR", "DEPUTY_DIRECTOR", "ACCOUNTANT", "WH_FINISHED"],
+      },
+    ],
+  },
+  {
     label: { uz: "Boshqaruv", ru: "Управление" },
     items: [
+      {
+        href: "/admin/opening-balance",
+        label: { uz: "Boshlang'ich qoldiq", ru: "Нач. остаток" },
+        icon: <Scale size={17} />,
+        roles: ["ADMIN"],
+      },
       {
         href: "/admin/adjustments",
         label: { uz: "Korrekturalar", ru: "Корректировки" },

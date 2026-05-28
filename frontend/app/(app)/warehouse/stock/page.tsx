@@ -1,23 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { stockApi, type FinishedGoodsStockItem, type RawCottonStockItem, type WasteStockItem, type PackagingStockItem } from "@/lib/api/stock";
+import { warehouseApi } from "@/lib/api/warehouse";
 import { exportApi } from "@/lib/api/export";
 import { useAuthStore } from "@/lib/stores/auth";
 import { DataTable } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import type { WarehouseType } from "@/lib/types";
+
+const TAB_FOR_TYPE: Record<WarehouseType, string> = {
+  FINISHED_GOODS: "finished",
+  RAW_COTTON: "raw",
+  WASTE: "waste",
+  PACKAGING: "packaging",
+};
 
 const TABS = [
-  { id: "finished", label: "Tayyor mahsulot", labelRu: "Готовая продукция" },
-  { id: "raw", label: "Paxta tolasi", labelRu: "Хлопок-волокно" },
-  { id: "waste", label: "Chiqindilar", labelRu: "Отходы" },
-  { id: "packaging", label: "Qadoqlash", labelRu: "Упаковка" },
+  { id: "finished",  label: "Tayyor mahsulot", labelRu: "Готовая продукция" },
+  { id: "raw",       label: "Paxta tolasi",    labelRu: "Хлопок-волокно"    },
+  { id: "waste",     label: "Chiqindilar",     labelRu: "Отходы"            },
+  { id: "packaging", label: "Qadoqlash",       labelRu: "Упаковка"          },
 ];
 
 export default function StockPage() {
@@ -25,6 +34,20 @@ export default function StockPage() {
   const t = (uz: string, ru: string) => language === "uz" ? uz : ru;
   const [tab, setTab] = useState("finished");
   const [warehouseId, setWarehouseId] = useState("");
+
+  const { data: warehousesPage } = useQuery({
+    queryKey: ["warehouses-all"],
+    queryFn: () => warehouseApi.list({ active_only: true, page_size: 200 }),
+  });
+  const warehouses = warehousesPage?.items ?? [];
+  const selectedWarehouse = warehouses.find((w) => w.id === warehouseId);
+
+  // Auto-switch tab when warehouse type changes
+  useEffect(() => {
+    if (selectedWarehouse?.warehouse_type) {
+      setTab(TAB_FOR_TYPE[selectedWarehouse.warehouse_type]);
+    }
+  }, [selectedWarehouse?.warehouse_type]);
 
   const { data: fgStock, isLoading: fgLoading } = useQuery({
     queryKey: ["stock-fg", warehouseId],
@@ -60,35 +83,35 @@ export default function StockPage() {
         return <Badge variant={s === "OPEN" ? "success" : s === "BLOCKED" ? "danger" : "default"}>{s}</Badge>;
       },
     },
-    { accessorKey: "count_value", header: "Count", cell: ({ getValue }) => getValue() || "—" },
-    { accessorKey: "owner_name", header: t("Egasi", "Владелец"), cell: ({ getValue }) => getValue() || t("O'z", "Своё") },
-    { accessorKey: "quantity_kg", header: "Qty (kg)", cell: ({ getValue }) => Number(getValue()).toLocaleString("uz-UZ", { minimumFractionDigits: 3 }) },
+    { accessorKey: "count_value", header: "Count",                cell: ({ getValue }) => getValue() || "—" },
+    { accessorKey: "owner_name",  header: t("Egasi", "Владелец"), cell: ({ getValue }) => getValue() || t("O'z", "Своё") },
+    { accessorKey: "quantity_kg", header: "Qty (kg)",             cell: ({ getValue }) => Number(getValue()).toLocaleString("uz-UZ", { minimumFractionDigits: 3 }) },
     { accessorKey: "quantity_bags", header: t("Qoplar", "Мешки"), cell: ({ getValue }) => getValue() ?? "—" },
   ];
 
   const rcColumns: ColumnDef<RawCottonStockItem>[] = [
-    { accessorKey: "lot_number", header: "Lot", cell: ({ getValue }) => getValue() || "—" },
-    { accessorKey: "count_value", header: "Count", cell: ({ getValue }) => getValue() || "—" },
-    { accessorKey: "owner_name", header: t("Egasi", "Владелец"), cell: ({ getValue }) => getValue() || t("O'z", "Своё") },
-    { accessorKey: "quantity_kg", header: "Qty (kg)", cell: ({ getValue }) => Number(getValue()).toLocaleString("uz-UZ", { minimumFractionDigits: 3 }) },
-    { accessorKey: "quantity_kip", header: "Qty (kip)", cell: ({ getValue }) => getValue() ? Number(getValue()).toLocaleString() : "—" },
+    { accessorKey: "lot_number",  header: "Lot",                  cell: ({ getValue }) => getValue() || "—" },
+    { accessorKey: "count_value", header: "Count",                cell: ({ getValue }) => getValue() || "—" },
+    { accessorKey: "owner_name",  header: t("Egasi", "Владелец"), cell: ({ getValue }) => getValue() || t("O'z", "Своё") },
+    { accessorKey: "quantity_kg", header: "Qty (kg)",             cell: ({ getValue }) => Number(getValue()).toLocaleString("uz-UZ", { minimumFractionDigits: 3 }) },
+    { accessorKey: "quantity_kip", header: "Qty (kip)",           cell: ({ getValue }) => getValue() ? Number(getValue()).toLocaleString() : "—" },
   ];
 
   const wasteColumns: ColumnDef<WasteStockItem>[] = [
     { accessorKey: "display_name", header: t("Tur", "Тип") },
-    { accessorKey: "quantity_kg", header: "Qty (kg)", cell: ({ getValue }) => Number(getValue()).toLocaleString("uz-UZ", { minimumFractionDigits: 3 }) },
+    { accessorKey: "quantity_kg",  header: "Qty (kg)", cell: ({ getValue }) => Number(getValue()).toLocaleString("uz-UZ", { minimumFractionDigits: 3 }) },
   ];
 
   const pkgColumns: ColumnDef<PackagingStockItem>[] = [
-    { accessorKey: "display_name", header: t("Tur", "Тип") },
+    { accessorKey: "display_name",   header: t("Tur", "Тип") },
     { accessorKey: "quantity_units", header: t("Dona", "Штук"), cell: ({ getValue }) => getValue() ?? "—" },
-    { accessorKey: "quantity_kg", header: "Qty (kg)", cell: ({ getValue }) => Number(getValue()).toLocaleString("uz-UZ", { minimumFractionDigits: 3 }) },
+    { accessorKey: "quantity_kg",    header: "Qty (kg)",        cell: ({ getValue }) => Number(getValue()).toLocaleString("uz-UZ", { minimumFractionDigits: 3 }) },
   ];
 
   const warehouseTypeMap: Record<string, string> = {
     finished: "FINISHED_GOODS",
-    raw: "RAW_COTTON",
-    waste: "WASTE",
+    raw:      "RAW_COTTON",
+    waste:    "WASTE",
     packaging: "PACKAGING",
   };
 
@@ -104,12 +127,17 @@ export default function StockPage() {
         </Button>
       </div>
 
-      <div className="mb-4 w-64">
-        <Input
-          label={t("Ombor ID", "ID склада")}
-          placeholder="warehouse UUID"
+      {/* Warehouse selector */}
+      <div className="mb-4 w-72">
+        <Select
+          label={t("Ombor", "Склад")}
           value={warehouseId}
-          onChange={(e) => setWarehouseId(e.target.value)}
+          onValueChange={setWarehouseId}
+          options={warehouses.map((w) => ({
+            value: w.id,
+            label: `${w.name} (${w.code})`,
+          }))}
+          placeholder={t("Ombor tanlang", "Выберите склад")}
         />
       </div>
 
