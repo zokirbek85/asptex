@@ -20,7 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # New ENUM types
-    tolling_lot_status = ENUM("OPEN", "CLOSED", name="tollinglomstatus", create_type=True)
+    tolling_lot_status = ENUM("OPEN", "CLOSED", name="tollinglotstatus", create_type=True)
     tolling_lot_status.create(op.get_bind(), checkfirst=True)
 
     tolling_dist_status = ENUM("DRAFT", "CONFIRMED", name="tollingdistributionstatus", create_type=True)
@@ -40,7 +40,7 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
         sa.Column("company_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("companies.id"), nullable=False),
         sa.Column("lot_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("lots.id"), nullable=False, unique=True),
-        sa.Column("status", ENUM("OPEN", "CLOSED", name="tollinglomstatus", create_type=False), nullable=False, server_default="OPEN"),
+        sa.Column("status", ENUM("OPEN", "CLOSED", name="tollinglotstatus", create_type=False), nullable=False, server_default="OPEN"),
         sa.Column("opened_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("closed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("closed_by", postgresql.UUID(as_uuid=True), nullable=True),
@@ -135,4 +135,4 @@ def downgrade() -> None:
     op.drop_table("tolling_lots")
     op.execute("DROP TYPE IF EXISTS tollinglinetype")
     op.execute("DROP TYPE IF EXISTS tollingdistributionstatus")
-    op.execute("DROP TYPE IF EXISTS tollinglomstatus")
+    op.execute("DROP TYPE IF EXISTS tollinglotstatus")
