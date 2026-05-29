@@ -14,14 +14,40 @@
       "Bash(docker inspect *)",
       "Bash(docker compose *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost/health)",
+<<<<<<< Updated upstream
       "Bash(npm install *)",
       "Bash(Get-ChildItem -Path \"d:\\\\Project\\\\new\\\\asptex\\\\backend\" -Recurse -Filter \"*.py\")",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Get-ChildItem -Path \"d:\\\\Project\\\\new\\\\asptex\\\\frontend\" -Recurse -Filter \"*.ts\" -o -Filter \"*.tsx\")",
       "Bash(docker restart *)"
+=======
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('dependencies',{}\\), indent=2\\)\\)\")",
+      "Bash(mkdir -p /Users/zokir/Documents/Projects/asptex/frontend/app/\\\\\\(app\\\\\\)/warehouse/daily-report /Users/zokir/Documents/Projects/asptex/frontend/app/\\\\\\(app\\\\\\)/warehouse/shipments/\\\\[id\\\\] /Users/zokir/Documents/Projects/asptex/frontend/app/\\\\\\(app\\\\\\)/warehouse/stock /Users/zokir/Documents/Projects/asptex/frontend/app/\\\\\\(app\\\\\\)/admin/adjustments /Users/zokir/Documents/Projects/asptex/frontend/app/\\\\\\(app\\\\\\)/admin/audit)",
+      "Bash(curl -s -X POST http://localhost/api/v1/auth/login -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"Admin1234!\"}')",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('Token OK:', d['access_token'][:20]+'...'\\); print\\('Companies:', [c['name'] for c in d['companies']]\\)\")",
+      "Bash(python3 -c \"import json,sys; print\\('Switch OK, token:', json.load\\(sys.stdin\\)['access_token'][:20]+'...'\\)\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('total:', d['total']\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('Login OK, companies:', [c['name'] for c in d.get\\('companies',[]\\)]\\)\")",
+      "Bash(curl -s -X POST http://localhost/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"Admin1234!\"}')",
+      "Bash(curl -s \"http://localhost/api/v1/counterparties/?page_size=500&active_only=true\" -H \"Authorization: Bearer $\\(curl -s -X POST http://localhost/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"Admin1234!\"}')",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('Report status:', d.get\\('status','ERR:'+str\\(d\\)[:100]\\)\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(npm list *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(list\\(d.get\\('dependencies',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(docker volume *)",
+      "Bash(xargs -r docker volume rm)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(git add *)",
+      "Bash(git push *)"
+>>>>>>> Stashed changes
     ],
     "additionalDirectories": [
-      "C:\\Users\\Zalman\\.claude\\projects\\d--Project-new-asptex"
+      "C:\\Users\\Zalman\\.claude\\projects\\d--Project-new-asptex",
+      "/Users/zokir/Documents/Projects/asptex/frontend/app/(app)/warehouse/shipments"
     ]
   }
 }
