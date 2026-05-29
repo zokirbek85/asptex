@@ -2,6 +2,7 @@ from datetime import date
 import uuid
 
 from fastapi import APIRouter, Query, Request, status
+from sqlalchemy import func, select
 
 from app.core.dependencies import AdminDep, AdminOrDeputyDep, CurrentUserDep, SessionDep
 from app.modules.daily_report.schemas import (
@@ -86,6 +87,54 @@ async def list_reports(
         [_build(r) for r in result.items],
         result.total, result.page, result.page_size,
     )
+
+
+@router.get("/fg-total")
+async def get_fg_production_total(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    report_date: date = Query(...),
+) -> dict:
+    from app.modules.daily_report.models import DailyReportLine
+    from app.modules.warehouse.models import Warehouse
+    from app.shared.enums import WarehouseType, LineCategory, ReportStatus
+
+    async with session.begin():
+        result = await session.execute(
+            select(func.coalesce(func.sum(DailyReportLine.quantity_kg), 0))
+            .join(DailyReport, DailyReportLine.daily_report_id == DailyReport.id)
+            .join(Warehouse, Warehouse.id == DailyReport.warehouse_id)
+            .where(
+                DailyReport.company_id == current_user.company_id,
+                DailyReport.report_date == report_date,
+                DailyReport.status.in_([ReportStatus.SUBMITTED, ReportStatus.CLOSED]),
+                Warehouse.warehouse_type == WarehouseType.FINISHED_GOODS,
+                DailyReportLine.line_category == LineCategory.PRODUCTION_INBOUND,
+            )
+        )
+        total_kg = float(result.scalar_one() or 0)
+    return {"date": str(report_date), "total_kg": total_kg}
+
+
+@router.get("/lookup", response_model=DailyReportResponse | None)
+async def lookup_report(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    warehouse_id: uuid.UUID = Query(...),
+    report_date: date = Query(...),
+) -> DailyReportResponse | None:
+    async with session.begin():
+        svc = DailyReportService(session)
+        existing = await svc.repo.get_by_warehouse_date(
+            current_user.company_id, warehouse_id, report_date
+        )
+        if existing is None:
+            return None
+        report = await svc.repo.get_with_lines(existing.id)
+        opening = await svc.get_opening_balance(
+            current_user.company_id, warehouse_id, report_date
+        )
+    return _build(report, opening)
 
 
 @router.post("/", response_model=DailyReportResponse, status_code=status.HTTP_200_OK)
@@ -182,3 +231,15 @@ async def reopen_report(
             current_user.company_id, report.warehouse_id, report.report_date
         )
     return _build(report, opening)
+
+
+@router.delete("/{report_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_draft_report(
+    report_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    current_user: AdminOrDeputyDep,
+) -> None:
+    async with session.begin():
+        svc = DailyReportService(session)
+        await svc.delete_draft(report_id, _ctx(request, current_user))

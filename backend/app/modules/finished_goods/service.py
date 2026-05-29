@@ -96,17 +96,20 @@ class FinishedGoodsService:
         rows = result.all()
 
         lot_statuses: dict[uuid.UUID, LotStatus] = {}
+        lot_numbers: dict[uuid.UUID, str] = {}
         if rows:
             lot_ids = list({r.lot_id for r in rows if r.lot_id})
             lots_result = await self.session.execute(
-                select(Lot.id, Lot.status).where(Lot.id.in_(lot_ids))
+                select(Lot.id, Lot.status, Lot.lot_number).where(Lot.id.in_(lot_ids))
             )
-            lot_statuses = {r.id: r.status for r in lots_result.all()}
+            for lot_row in lots_result.all():
+                lot_statuses[lot_row.id] = lot_row.status
+                lot_numbers[lot_row.id] = lot_row.lot_number
 
         return [
             FinishedGoodsStockItem(
                 lot_id=r.lot_id,
-                lot_number=r.lot_number or "",
+                lot_number=r.lot_number or lot_numbers.get(r.lot_id, ""),
                 lot_status=lot_statuses.get(r.lot_id, LotStatus.OPEN),
                 count_id=r.count_id,
                 count_value=r.count_value,

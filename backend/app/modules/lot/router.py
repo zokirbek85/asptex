@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Query, Request, status
+from sqlalchemy import select
 
 from app.core.dependencies import AdminDep, AdminOrDeputyDep, CurrentUserDep, SessionDep
 from app.core.exceptions import PermissionDeniedError
@@ -13,13 +14,14 @@ from app.modules.lot.schemas import (
     StockSummaryItem,
 )
 from app.modules.lot.service import LotService
+from app.modules.tolling.models import TollingLot as TollingLotModel
 from app.shared.enums import LotStatus
 from app.shared.schemas import PaginatedResponse
 
 router = APIRouter(prefix="/lots", tags=["lots"])
 
 
-def _build_response(lot, stock_summary: list[dict] | None = None) -> LotResponse:
+def _build_response(lot, stock_summary: list[dict] | None = None, tolling_lot_id: uuid.UUID | None = None) -> LotResponse:
     return LotResponse(
         id=lot.id,
         company_id=lot.company_id,
@@ -36,7 +38,19 @@ def _build_response(lot, stock_summary: list[dict] | None = None) -> LotResponse
         created_at=lot.created_at,
         updated_at=lot.updated_at,
         stock_summary=[StockSummaryItem(**s) for s in (stock_summary or [])],
+        tolling_lot_id=tolling_lot_id,
     )
+
+
+async def _get_tolling_lot_map(session, lot_ids: list[uuid.UUID]) -> dict[uuid.UUID, uuid.UUID]:
+    if not lot_ids:
+        return {}
+    result = await session.execute(
+        select(TollingLotModel.lot_id, TollingLotModel.id).where(
+            TollingLotModel.lot_id.in_(lot_ids)
+        )
+    )
+    return {r.lot_id: r.id for r in result}
 
 
 @router.get("/", response_model=PaginatedResponse[LotResponse])
@@ -53,8 +67,10 @@ async def list_lots(
     async with session.begin():
         svc = LotService(session)
         result = await svc.list(current_user.company_id, page, page_size, status, search)
+        lot_ids = [lot.id for lot in result.items]
+        tolling_map = await _get_tolling_lot_map(session, lot_ids)
     return PaginatedResponse[LotResponse].build(
-        [_build_response(lot) for lot in result.items],
+        [_build_response(lot, tolling_lot_id=tolling_map.get(lot.id)) for lot in result.items],
         result.total, result.page, result.page_size,
     )
 
@@ -92,7 +108,8 @@ async def get_lot(
         svc = LotService(session)
         lot = await svc.get(lot_id)
         summary = await svc.get_stock_summary(lot_id) if include_stock else None
-    return _build_response(lot, summary)
+        tolling_map = await _get_tolling_lot_map(session, [lot_id])
+    return _build_response(lot, summary, tolling_lot_id=tolling_map.get(lot_id))
 
 
 @router.put("/{lot_id}", response_model=LotResponse)

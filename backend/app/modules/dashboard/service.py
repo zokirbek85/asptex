@@ -17,6 +17,7 @@ from app.modules.dashboard.schemas import (
     DashboardSummary,
     SlowStockItem,
     StockByLot,
+    UnclosedReportItem,
 )
 from app.modules.waste.schemas import WASTE_TYPE_LABELS
 from app.modules.packaging.schemas import PKG_TYPE_LABELS
@@ -358,6 +359,33 @@ class DashboardService:
             })
         return out
 
+    async def get_unclosed_reports(self, company_id: uuid.UUID) -> list[UnclosedReportItem]:
+        result = await self.session.execute(
+            select(
+                DailyReport.id,
+                DailyReport.report_date,
+                DailyReport.warehouse_id,
+                DailyReport.status,
+                Warehouse.name.label("warehouse_name"),
+            )
+            .join(Warehouse, Warehouse.id == DailyReport.warehouse_id)
+            .where(
+                DailyReport.company_id == company_id,
+                DailyReport.status.in_([ReportStatus.DRAFT, ReportStatus.SUBMITTED]),
+            )
+            .order_by(DailyReport.report_date.asc())
+        )
+        return [
+            UnclosedReportItem(
+                id=r.id,
+                report_date=r.report_date,
+                warehouse_id=r.warehouse_id,
+                warehouse_name=r.warehouse_name,
+                status=r.status.value,
+            )
+            for r in result.all()
+        ]
+
     async def get_alerts(self, company_id: uuid.UUID) -> list[DashboardAlert]:
         alerts: list[DashboardAlert] = []
 
@@ -395,7 +423,7 @@ class DashboardService:
                     alerts.append(DashboardAlert(
                         alert_type="MIN_STOCK",
                         severity="WARNING",
-                        message=f"{pa.display_name}: {pa.current_units} ta qoldi (min: {pa.min_units})",
+                        message=f"{pa.display_name}: {pa.current_qty:.0f} {pa.unit_type} qoldi (min: {pa.min_qty:.0f})",
                     ))
 
         return alerts

@@ -8,6 +8,7 @@ const inter = Inter({ subsets: ["latin", "cyrillic"] });
 export const metadata: Metadata = {
   title: "ASPTEX — Textile ERP",
   description: "ASPTEX Textile Warehouse Management System",
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({

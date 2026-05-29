@@ -7,6 +7,7 @@ from app.modules.dashboard.schemas import (
     DashboardSummary,
     SlowStockItem,
     StockByLot,
+    UnclosedReportItem,
 )
 from app.modules.dashboard.service import DashboardService
 
@@ -71,3 +72,13 @@ async def get_alerts(
     async with session.begin():
         svc = DashboardService(session)
         return await svc.get_alerts(current_user.company_id)
+
+
+@router.get("/unclosed-reports", response_model=list[UnclosedReportItem])
+async def unclosed_reports(
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> list[UnclosedReportItem]:
+    async with session.begin():
+        svc = DashboardService(session)
+        return await svc.get_unclosed_reports(current_user.company_id)

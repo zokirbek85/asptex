@@ -103,9 +103,20 @@ export default function StockPage() {
   ];
 
   const pkgColumns: ColumnDef<PackagingStockItem>[] = [
-    { accessorKey: "display_name",   header: t("Tur", "Тип") },
-    { accessorKey: "quantity_units", header: t("Dona", "Штук"), cell: ({ getValue }) => getValue() ?? "—" },
-    { accessorKey: "quantity_kg",    header: "Qty (kg)",        cell: ({ getValue }) => Number(getValue()).toLocaleString("uz-UZ", { minimumFractionDigits: 3 }) },
+    { accessorKey: "display_name", header: t("Tur", "Тип") },
+    {
+      id: "qty",
+      header: t("Miqdor", "Количество"),
+      cell: ({ row }) => {
+        const item = row.original;
+        if (item.unit_type === "kg") {
+          return `${Number(item.quantity_kg).toLocaleString("uz-UZ", { minimumFractionDigits: 3 })} kg`;
+        }
+        return item.quantity_units != null
+          ? `${item.quantity_units} ${item.unit_type}`
+          : "—";
+      },
+    },
   ];
 
   const warehouseTypeMap: Record<string, string> = {

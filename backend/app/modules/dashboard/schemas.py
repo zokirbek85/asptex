@@ -50,3 +50,11 @@ class DashboardAlert(AppBaseModel):
     severity: str
     message: str
     reference_id: uuid.UUID | None = None
+
+
+class UnclosedReportItem(AppBaseModel):
+    id: uuid.UUID
+    report_date: date
+    warehouse_id: uuid.UUID
+    warehouse_name: str
+    status: str

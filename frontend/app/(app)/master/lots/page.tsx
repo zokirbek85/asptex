@@ -93,9 +93,20 @@ export default function LotsPage() {
       accessorKey: "lot_number",
       header: t("Lot raqami", "Номер лота"),
       cell: ({ row }) => (
-        <Link href={`/master/lots/${row.original.id}`} className="font-semibold text-blue-600 hover:underline font-mono">
-          {row.original.lot_number}
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/master/lots/${row.original.id}`} className="font-semibold text-blue-600 hover:underline font-mono">
+            {row.original.lot_number}
+          </Link>
+          {row.original.tolling_lot_id && (
+            <Link
+              href="/tolling/active-lot"
+              className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 hover:bg-purple-200"
+              title={t("Tolling lotiga o'tish", "Перейти к толлинг-лоту")}
+            >
+              Tolling
+            </Link>
+          )}
+        </div>
       ),
     },
     {

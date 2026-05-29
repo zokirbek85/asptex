@@ -307,4 +307,5 @@ export interface Lot {
   created_at: string;
   updated_at: string;
   stock_summary: StockSummaryItem[];
+  tolling_lot_id: string | null;
 }

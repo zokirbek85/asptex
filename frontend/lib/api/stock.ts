@@ -22,6 +22,7 @@ export interface WasteStockItem {
 export interface PackagingStockItem {
   pkg_item_type: PackagingItemType;
   display_name: string;
+  unit_type: "kg" | "dona" | "komplekt";
   quantity_units: number | null;
   quantity_kg: number;
 }

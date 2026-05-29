@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { tollingApi, type TollingDistribution } from "@/lib/api/tolling";
+import { dailyReportApi } from "@/lib/api/daily-report";
 import { useAuthStore } from "@/lib/stores/auth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -21,9 +22,25 @@ export default function NewDistributionPage() {
   const today = format(new Date(), "yyyy-MM-dd");
   const [distribDate, setDistribDate] = useState(today);
   const [fgKg, setFgKg] = useState("");
+  const [autoFilled, setAutoFilled] = useState(false);
   const [rawIntakes, setRawIntakes] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<TollingDistribution | null>(null);
   const [draftId, setDraftId] = useState<string | null>(null);
+
+  const { data: fgTotalData } = useQuery({
+    queryKey: ["fg-total", distribDate],
+    queryFn: () => dailyReportApi.getFgTotal(distribDate),
+    enabled: !!distribDate,
+  });
+
+  useEffect(() => {
+    if (fgTotalData && fgTotalData.total_kg > 0) {
+      setFgKg(String(fgTotalData.total_kg));
+      setAutoFilled(true);
+    } else {
+      setAutoFilled(false);
+    }
+  }, [fgTotalData]);
 
   const { data: lot, isLoading: lotLoading } = useQuery({
     queryKey: ["tolling-active-lot"],
@@ -106,12 +123,15 @@ export default function NewDistributionPage() {
           <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
             <h2 className="text-sm font-semibold text-slate-700">{t("Asosiy ma'lumotlar", "Основные данные")}</h2>
             <Input label={t("Sana *", "Дата *")} type="date" value={distribDate} onChange={(e) => setDistribDate(e.target.value)} />
-            <Input
-              label={t("Kunlik tayyor mahsulot (kg) *", "Готовая продукция за день (кг) *")}
-              type="number" step="0.001" min="0"
-              value={fgKg}
-              onChange={(e) => setFgKg(e.target.value)}
-            />
+            <div>
+              <Input
+                label={t("Kunlik tayyor mahsulot (kg) *", "Готовая продукция за день (кг) *")}
+                type="number" step="0.001" min="0"
+                value={fgKg}
+                onChange={(e) => { setFgKg(e.target.value); setAutoFilled(false); }}
+                hint={autoFilled ? t("✓ Kunlik hisobotdan avtomatik tortildi", "✓ Заполнено автоматически из отчёта") : undefined}
+              />
+            </div>
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">

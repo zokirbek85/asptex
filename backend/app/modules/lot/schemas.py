@@ -49,3 +49,4 @@ class LotResponse(AppBaseModel):
     created_at: datetime
     updated_at: datetime
     stock_summary: list[StockSummaryItem] = []
+    tolling_lot_id: uuid.UUID | None = None

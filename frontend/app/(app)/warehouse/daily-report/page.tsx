@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -45,6 +46,16 @@ const PKG_TYPES = [
   { value: "PARAFFIN", label: "Parafin" },
   { value: "BOX", label: "Quti (Box)" },
 ];
+
+// O'lchov birligi per pkg_item_type
+const PKG_UNIT: Record<string, "kg" | "dona" | "komplekt"> = {
+  BAG: "dona",
+  CONE: "dona",
+  PACKAGE: "komplekt",
+  CORRUGATED_SHEET: "dona",
+  PARAFFIN: "kg",
+  BOX: "komplekt",
+};
 
 const STATUS_VARIANT: Record<ReportStatus, "warning" | "info" | "success"> = {
   DRAFT: "warning",
@@ -298,26 +309,65 @@ function LineRow({
   }
 
   // PACKAGING
+  const pkgUnit = line.pkg_item_type ? (PKG_UNIT[line.pkg_item_type] ?? "dona") : "dona";
+  const isReceipt = line.line_category === "RECEIPT";
+  const missingQty = isReceipt && (
+    (pkgUnit === "kg" && !line.quantity_kg) ||
+    (pkgUnit !== "kg" && !line.quantity_units)
+  );
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-3">
+    <div className={`flex flex-wrap items-end gap-2 rounded-lg border p-3 bg-white ${missingQty ? "border-amber-300" : "border-slate-200"}`}>
       <div className="w-44 shrink-0">
         <Select
-          label="Qadoqlash turi"
+          label="Qadoqlash turi *"
           value={line.pkg_item_type ?? ""}
-          onValueChange={(v) => patch({ pkg_item_type: (v || null) as DailyReportLineCreate["pkg_item_type"] })}
+          onValueChange={(v) => patch({
+            pkg_item_type: (v || null) as DailyReportLineCreate["pkg_item_type"],
+            quantity_kg: 0,
+            quantity_units: null,
+          })}
           options={PKG_TYPES}
           placeholder="Tur tanlang..."
         />
       </div>
-      {commonQty}
-      <div className="w-24 shrink-0">
-        <Input
-          label="Dona"
-          type="number" min="0"
-          value={line.quantity_units ?? ""}
-          onChange={(e) => patch({ quantity_units: parseInt(e.target.value) || null })}
-        />
-      </div>
+
+      {/* kg — faqat PARAFFIN */}
+      {pkgUnit === "kg" && (
+        <div className="w-32 shrink-0">
+          <Input
+            label={isReceipt ? "kg *" : "kg"}
+            type="number" step="0.001" min="0"
+            value={line.quantity_kg || ""}
+            onChange={(e) => patch({ quantity_kg: parseFloat(e.target.value) || 0 })}
+            error={missingQty ? "kg kiritilmagan" : undefined}
+          />
+        </div>
+      )}
+
+      {/* dona yoki komplekt */}
+      {pkgUnit !== "kg" && (
+        <>
+          <div className="w-28 shrink-0">
+            <Input
+              label={isReceipt ? `${pkgUnit} *` : pkgUnit}
+              type="number" min="0"
+              value={line.quantity_units ?? ""}
+              onChange={(e) => patch({ quantity_units: parseInt(e.target.value) || null })}
+              error={missingQty ? `${pkgUnit} soni kiritilmagan` : undefined}
+            />
+          </div>
+          {/* Og'irlik ixtiyoriy */}
+          <div className="w-28 shrink-0">
+            <Input
+              label="kg (ixtiyoriy)"
+              type="number" step="0.001" min="0"
+              value={line.quantity_kg || ""}
+              onChange={(e) => patch({ quantity_kg: parseFloat(e.target.value) || 0 })}
+            />
+          </div>
+        </>
+      )}
+
       <div className="min-w-0 flex-1">
         <Input
           label="Izoh"
@@ -338,10 +388,11 @@ export default function DailyReportPage() {
   const qc = useQueryClient();
   const isAdmin = activeRole === "ADMIN";
   const isManager = activeRole === "ADMIN" || activeRole === "DEPUTY_DIRECTOR";
+  const searchParams = useSearchParams();
 
   const today = format(new Date(), "yyyy-MM-dd");
-  const [reportDate, setReportDate] = useState(today);
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState("");
+  const [reportDate, setReportDate] = useState(searchParams.get("date") ?? today);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState(searchParams.get("warehouse_id") ?? "");
   const [lines, setLines] = useState<DailyReportLineCreate[]>([]);
   const [collapsedOB, setCollapsedOB] = useState(false);
   const [showReopenModal, setShowReopenModal] = useState(false);
@@ -399,12 +450,19 @@ export default function DailyReportPage() {
 
   const { data: report, isLoading: reportLoading } = useQuery({
     queryKey: ["daily-report", selectedWarehouseId, reportDate],
-    queryFn: () =>
-      dailyReportApi.getOrCreate({
-        warehouse_id: selectedWarehouseId,
-        report_date: reportDate,
-      }),
+    queryFn: () => dailyReportApi.lookup(selectedWarehouseId, reportDate),
     enabled: !!selectedWarehouseId,
+  });
+
+  const createReportMut = useMutation({
+    mutationFn: () => dailyReportApi.getOrCreate({
+      warehouse_id: selectedWarehouseId,
+      report_date: reportDate,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["daily-report", selectedWarehouseId, reportDate] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   // Sync lines from existing DRAFT report when it loads
@@ -475,6 +533,15 @@ export default function DailyReportPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteDraftMut = useMutation({
+    mutationFn: () => dailyReportApi.deleteDraft(report!.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["daily-report"] });
+      toast.success(t("Qoralama o'chirildi", "Черновик удалён"));
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   // ── Line management ───────────────────────────────────────────────────────
 
   const addLine = (category: string) => {
@@ -492,13 +559,19 @@ export default function DailyReportPage() {
     setLines((prev) => prev.filter((_, i) => i !== idx));
   }, []);
 
+  // ── Label maps ────────────────────────────────────────────────────────────
+
+  const PKG_LABEL: Record<string, string> = Object.fromEntries(PKG_TYPES.map((p) => [p.value, p.label]));
+  const WASTE_LABEL: Record<string, string> = Object.fromEntries(WASTE_TYPES.map((w) => [w.value, w.label]));
+  const fmtKg = (v: any) => Number(v).toLocaleString("uz-UZ", { minimumFractionDigits: 3 });
+
   // ── Opening balance columns ────────────────────────────────────────────
 
   const obColumns: ColumnDef<OpeningBalanceLine>[] = [
     ...(whType === "WASTE"
-      ? [{ accessorKey: "waste_type" as const, header: "Tur", cell: ({ getValue }: any) => getValue() || "—" }]
+      ? [{ accessorKey: "waste_type" as const, header: t("Tur", "Тип"), cell: ({ getValue }: any) => WASTE_LABEL[getValue()] ?? getValue() ?? "—" }]
       : whType === "PACKAGING"
-      ? [{ accessorKey: "pkg_item_type" as const, header: "Tur", cell: ({ getValue }: any) => getValue() || "—" }]
+      ? [{ accessorKey: "pkg_item_type" as const, header: t("Tur", "Тип"), cell: ({ getValue }: any) => PKG_LABEL[getValue()] ?? getValue() ?? "—" }]
       : whType === "RAW_COTTON"
       ? [{ accessorKey: "owner_name" as const, header: t("Egasi", "Владелец"), cell: ({ getValue }: any) => getValue() || t("O'z", "Своё") }]
       : [
@@ -518,29 +591,71 @@ export default function DailyReportPage() {
     ...(whType === "FINISHED_GOODS"
       ? [{ accessorKey: "quantity_bags" as const, header: t("Qoplar", "Мешки"), cell: ({ getValue }: any) => getValue() ?? "—" }]
       : whType === "PACKAGING"
-      ? [{ accessorKey: "quantity_units" as const, header: t("Dona", "Шт."), cell: ({ getValue }: any) => getValue() ?? "—" }]
+      ? [{
+          id: "ob_pkg_qty" as const,
+          header: t("Miqdor", "Кол-во"),
+          cell: ({ row }: any) => {
+            const pkgType = row.original.pkg_item_type;
+            const unit = pkgType ? (PKG_UNIT[pkgType] ?? "dona") : "dona";
+            if (unit === "kg") return `${fmtKg(row.original.quantity_kg)} kg`;
+            return row.original.quantity_units != null ? `${row.original.quantity_units} ${unit}` : "—";
+          },
+        }]
       : []),
   ];
 
   // ── Read-only submitted lines columns ─────────────────────────────────────
 
+  const LINE_CAT_LABEL: Record<string, string> = {
+    RECEIPT: t("Qabul (+)", "Приём (+)"),
+    PRODUCTION_INBOUND: t("Ishlab chiqarish (+)", "Произв. (+)"),
+    PRODUCTION_ISSUE: t("Ishlab chiqarishga (−)", "В произв. (−)"),
+    SALE_OUTBOUND: t("Sotish (−)", "Продажа (−)"),
+    PACKAGING_ISSUE: t("Taraga berish (−)", "В упаковку (−)"),
+  };
+
   const readOnlyColumns: ColumnDef<any>[] = [
     { accessorKey: "line_number", header: "#", size: 40 },
-    { accessorKey: "line_category", header: t("Kategoriya", "Категория") },
-    ...(needsLots
-      ? [
-          { accessorKey: "lot_id", header: "Lot", cell: ({ row }: any) => <span className="font-mono text-xs">{row.original.lot_id?.slice(0, 8) ?? "—"}…</span> },
-          { accessorKey: "owner_id", header: t("Egasi", "Владелец"), cell: ({ getValue }: any) => getValue() ? "tolling" : t("O'z", "Своё") },
-        ]
-      : whType === "WASTE"
-      ? [{ accessorKey: "waste_type", header: "Tur" }]
-      : [{ accessorKey: "pkg_item_type", header: "Tur" }]),
     {
-      accessorKey: "quantity_kg",
-      header: "kg",
-      cell: ({ getValue }: any) => Number(getValue()).toLocaleString("uz-UZ", { minimumFractionDigits: 3 }),
+      accessorKey: "line_category",
+      header: t("Kategoriya", "Категория"),
+      cell: ({ getValue }: any) => LINE_CAT_LABEL[getValue()] ?? getValue(),
     },
-    { accessorKey: "quantity_bags", header: t("Qoplar", "Мешки"), cell: ({ getValue }: any) => getValue() ?? "—" },
+    ...(whType === "FINISHED_GOODS" ? [
+      {
+        accessorKey: "lot_id",
+        header: "Lot",
+        cell: ({ row }: any) => <span className="font-mono text-xs text-slate-500">{row.original.lot_id?.slice(0, 8) ?? "—"}</span>,
+      },
+      { accessorKey: "count_id", header: "Count", cell: ({ getValue }: any) => getValue() ? <span className="font-mono text-xs text-slate-500">{String(getValue()).slice(0, 8)}</span> : "—" },
+      { accessorKey: "owner_id", header: t("Egasi", "Владелец"), cell: ({ getValue }: any) => getValue() ? t("Tolling", "Толлинг") : t("O'z", "Своё") },
+      { accessorKey: "quantity_kg", header: "kg", cell: ({ getValue }: any) => <span className="tabular-nums">{fmtKg(getValue())}</span> },
+      { accessorKey: "quantity_bags", header: t("Qoplar", "Мешки"), cell: ({ getValue }: any) => getValue() ?? "—" },
+    ] : whType === "RAW_COTTON" ? [
+      { accessorKey: "owner_id", header: t("Egasi", "Владелец"), cell: ({ getValue }: any) => getValue() ? t("Tolling", "Толлинг") : t("O'z", "Своё") },
+      { accessorKey: "quantity_kg", header: "kg", cell: ({ getValue }: any) => <span className="tabular-nums">{fmtKg(getValue())}</span> },
+      { accessorKey: "quantity_kip", header: "Kip", cell: ({ getValue }: any) => getValue() ? fmtKg(getValue()) : "—" },
+    ] : whType === "WASTE" ? [
+      { accessorKey: "waste_type", header: t("Tur", "Тип"), cell: ({ getValue }: any) => WASTE_LABEL[getValue()] ?? getValue() ?? "—" },
+      { accessorKey: "quantity_kg", header: "kg", cell: ({ getValue }: any) => <span className="tabular-nums">{fmtKg(getValue())}</span> },
+    ] : /* PACKAGING */ [
+      {
+        accessorKey: "pkg_item_type",
+        header: t("Tur", "Тип"),
+        cell: ({ getValue }: any) => PKG_LABEL[getValue()] ?? getValue() ?? "—",
+      },
+      {
+        id: "pkg_qty",
+        header: t("Miqdor", "Кол-во"),
+        cell: ({ row }: any) => {
+          const pkgType = row.original.pkg_item_type;
+          const unit = pkgType ? (PKG_UNIT[pkgType] ?? "dona") : "dona";
+          if (unit === "kg") return <span className="tabular-nums">{fmtKg(row.original.quantity_kg)}&nbsp;kg</span>;
+          const qty = row.original.quantity_units;
+          return qty != null ? `${qty} ${unit}` : <span className="tabular-nums">{fmtKg(row.original.quantity_kg)}&nbsp;kg</span>;
+        },
+      },
+    ]),
     { accessorKey: "notes", header: t("Izoh", "Примечание"), cell: ({ getValue }: any) => getValue() || "—" },
   ];
 
@@ -609,6 +724,24 @@ export default function DailyReportPage() {
       {selectedWarehouseId && reportLoading && (
         <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-400">
           {t("Yuklanmoqda...", "Загрузка...")}
+        </div>
+      )}
+
+      {selectedWarehouseId && !reportLoading && !report && (
+        <div className="rounded-xl border-2 border-dashed border-slate-200 p-12 text-center">
+          <Box size={32} className="mx-auto mb-3 opacity-40 text-slate-400" />
+          <p className="mb-4 text-sm text-slate-400">
+            {t("Bu sana uchun hisobot mavjud emas", "Отчёт за эту дату не найден")}
+          </p>
+          {isManager && (
+            <Button
+              size="sm"
+              loading={createReportMut.isPending}
+              onClick={() => createReportMut.mutate()}
+            >
+              <Plus size={14} /> {t("Yangi hisobot ochish", "Создать новый отчёт")}
+            </Button>
+          )}
         </div>
       )}
 
@@ -724,6 +857,19 @@ export default function DailyReportPage() {
                   {t("Jami kg", "Итого кг")}: <strong>{lines.reduce((s, l) => s + (l.quantity_kg || 0), 0).toLocaleString("uz-UZ", { minimumFractionDigits: 3 })}</strong>
                 </div>
                 <div className="flex gap-2">
+                  {isManager && (
+                    <Button
+                      variant="danger" size="sm"
+                      loading={deleteDraftMut.isPending}
+                      onClick={() => {
+                        if (confirm(t("Qoralamani o'chirishni tasdiqlaysizmi?", "Удалить черновик?"))) {
+                          deleteDraftMut.mutate();
+                        }
+                      }}
+                    >
+                      <Trash2 size={14} /> {t("O'chirish", "Удалить")}
+                    </Button>
+                  )}
                   <Button
                     variant="outline" size="sm"
                     loading={saveDraftMut.isPending}

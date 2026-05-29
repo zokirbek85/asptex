@@ -69,6 +69,12 @@ export const dailyReportApi = {
     date_to?: string;
   }) => apiClient.get<PaginatedResponse<DailyReportResponse>>("/daily-reports/", params),
 
+  lookup: (warehouse_id: string, report_date: string) =>
+    apiClient.get<DailyReportResponse | null>("/daily-reports/lookup", { warehouse_id, report_date }),
+
+  getFgTotal: (report_date: string) =>
+    apiClient.get<{ date: string; total_kg: number }>("/daily-reports/fg-total", { report_date }),
+
   getOrCreate: (body: { warehouse_id: string; report_date: string; notes?: string | null }) =>
     apiClient.post<DailyReportResponse>("/daily-reports/", body),
 
@@ -86,4 +92,7 @@ export const dailyReportApi = {
 
   reopen: (id: string, reopen_reason: string) =>
     apiClient.post<DailyReportResponse>(`/daily-reports/${id}/reopen`, { reopen_reason }),
+
+  deleteDraft: (id: string) =>
+    apiClient.delete<void>(`/daily-reports/${id}`),
 };

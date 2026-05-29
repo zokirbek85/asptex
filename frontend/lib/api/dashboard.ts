@@ -44,6 +44,14 @@ export interface DashboardAlert {
   reference_id: string | null;
 }
 
+export interface UnclosedReportItem {
+  id: string;
+  report_date: string;
+  warehouse_id: string;
+  warehouse_name: string;
+  status: "DRAFT" | "SUBMITTED";
+}
+
 export interface RecentShipment {
   id: string;
   shipment_number: string;
@@ -60,4 +68,5 @@ export const dashboardApi = {
   slowStock: () => apiClient.get<SlowStockItem[]>("/dashboard/slow-stock"),
   recentShipments: () => apiClient.get<RecentShipment[]>("/dashboard/recent-shipments"),
   alerts: () => apiClient.get<DashboardAlert[]>("/dashboard/alerts"),
+  unclosedReports: () => apiClient.get<UnclosedReportItem[]>("/dashboard/unclosed-reports"),
 };

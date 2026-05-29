@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.packaging.schemas import (
     MIN_STOCK_THRESHOLDS,
     PKG_TYPE_LABELS,
+    PKG_UNIT_TYPES,
+    PkgUnitType,
     MinStockAlert,
     PackagingMovementItem,
     PackagingStockItem,
@@ -42,13 +44,17 @@ class PackagingService:
                 StockTransaction.pkg_item_type.is_not(None),
             )
             .group_by(StockTransaction.pkg_item_type)
-            .having(func.sum(StockTransaction.quantity_kg * StockTransaction.direction) > 0)
+            .having(
+                (func.coalesce(func.sum(StockTransaction.quantity_kg * StockTransaction.direction), 0) > 0) |
+                (func.coalesce(func.sum(StockTransaction.quantity_units * StockTransaction.direction), 0) > 0)
+            )
             .order_by(StockTransaction.pkg_item_type)
         )
         return [
             PackagingStockItem(
                 pkg_item_type=r.pkg_item_type,
                 display_name=PKG_TYPE_LABELS.get(r.pkg_item_type, r.pkg_item_type.value),
+                unit_type=PKG_UNIT_TYPES.get(r.pkg_item_type, PkgUnitType.DONA),
                 quantity_units=int(r.total_units) if r.total_units else None,
                 quantity_kg=Decimal(str(r.total_kg)),
             )
@@ -95,6 +101,7 @@ class PackagingService:
                 id=tx.id,
                 pkg_item_type=tx.pkg_item_type,
                 display_name=PKG_TYPE_LABELS.get(tx.pkg_item_type, tx.pkg_item_type.value),
+                unit_type=PKG_UNIT_TYPES.get(tx.pkg_item_type, PkgUnitType.DONA),
                 transaction_type=tx.transaction_type,
                 direction=tx.direction,
                 quantity_kg=Decimal(str(tx.quantity_kg)),
@@ -116,14 +123,23 @@ class PackagingService:
 
         alerts = []
         for pkg_type in PackagingItemType:
+            unit_type = PKG_UNIT_TYPES.get(pkg_type, PkgUnitType.DONA)
             threshold = MIN_STOCK_THRESHOLDS.get(pkg_type, 100)
             item = stock_map.get(pkg_type)
-            current_units = item.quantity_units or 0 if item else 0
-            if current_units < threshold:
+
+            if unit_type == PkgUnitType.KG:
+                current_qty = float(item.quantity_kg) if item else 0.0
+            else:
+                if item is None or item.quantity_units is None:
+                    continue
+                current_qty = float(item.quantity_units)
+
+            if current_qty < threshold:
                 alerts.append(MinStockAlert(
                     pkg_item_type=pkg_type,
                     display_name=PKG_TYPE_LABELS.get(pkg_type, pkg_type.value),
-                    current_units=current_units,
-                    min_units=threshold,
+                    unit_type=unit_type,
+                    current_qty=current_qty,
+                    min_qty=threshold,
                 ))
         return alerts

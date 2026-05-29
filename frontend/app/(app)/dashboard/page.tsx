@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  AlertTriangle, ArrowRight, Box, Info, Package, Ship, TrendingUp, Warehouse,
+  AlertTriangle, ArrowRight, Box, ChevronDown, ChevronUp, Info, Package, Ship, TrendingUp, Warehouse,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar,
@@ -125,10 +126,20 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
   );
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  DRAFT: "Qoralama",
+  SUBMITTED: "Yuborilgan",
+};
+const STATUS_COLOR: Record<string, string> = {
+  DRAFT: "bg-yellow-100 text-yellow-700",
+  SUBMITTED: "bg-blue-100 text-blue-700",
+};
+
 // ── Main dashboard ─────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user, language } = useAuthStore();
   const t = (uz: string, ru: string) => language === "uz" ? uz : ru;
+  const [unclosedExpanded, setUnclosedExpanded] = useState(false);
 
   const { data: summary, isLoading: sumLoading } = useQuery({
     queryKey: ["dashboard-summary"],
@@ -154,6 +165,12 @@ export default function DashboardPage() {
     queryKey: ["dashboard-alerts"],
     queryFn: dashboardApi.alerts,
     refetchInterval: 60_000,
+  });
+
+  const { data: unclosedReports } = useQuery({
+    queryKey: ["dashboard-unclosed-reports"],
+    queryFn: dashboardApi.unclosedReports,
+    enabled: unclosedExpanded,
   });
 
   const chartSeries = chartData
@@ -373,24 +390,79 @@ export default function DashboardPage() {
         <Card>
           <SectionTitle title={t("Ogohlantirishlar", "Оповещения")} />
           <div className="space-y-2">
-            {alerts.map((alert, idx) => (
-              <div
-                key={idx}
-                className={cn(
-                  "flex items-start gap-3 rounded-lg px-3 py-2.5 text-[13px]",
-                  alert.severity === "WARNING"
-                    ? "bg-warning-light text-warning"
-                    : "bg-primary-light text-primary"
-                )}
-              >
-                {alert.severity === "WARNING" ? (
-                  <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
-                ) : (
-                  <Info size={14} className="mt-0.5 flex-shrink-0" />
-                )}
-                <span>{alert.message}</span>
-              </div>
-            ))}
+            {alerts.map((alert, idx) => {
+              const isUnclosed = alert.alert_type === "UNCLOSED_REPORT";
+              return (
+                <div key={idx}>
+                  <div
+                    className={cn(
+                      "flex items-start gap-3 rounded-lg px-3 py-2.5 text-[13px]",
+                      isUnclosed ? "cursor-pointer select-none" : "",
+                      alert.severity === "WARNING"
+                        ? "bg-warning-light text-warning"
+                        : "bg-primary-light text-primary"
+                    )}
+                    onClick={isUnclosed ? () => setUnclosedExpanded((v) => !v) : undefined}
+                  >
+                    {alert.severity === "WARNING" ? (
+                      <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                    ) : (
+                      <Info size={14} className="mt-0.5 flex-shrink-0" />
+                    )}
+                    <span className="flex-1">{alert.message}</span>
+                    {isUnclosed && (
+                      unclosedExpanded
+                        ? <ChevronUp size={14} className="mt-0.5 flex-shrink-0" />
+                        : <ChevronDown size={14} className="mt-0.5 flex-shrink-0" />
+                    )}
+                  </div>
+
+                  {isUnclosed && unclosedExpanded && (
+                    <div className="mt-1 rounded-lg border border-slate-200 bg-white overflow-hidden">
+                      {!unclosedReports ? (
+                        <p className="px-4 py-3 text-[12px] text-slate-400">{t("Yuklanmoqda...", "Загрузка...")}</p>
+                      ) : unclosedReports.length === 0 ? (
+                        <p className="px-4 py-3 text-[12px] text-slate-400">{t("Yopilmagan hisobot yo'q", "Нет незакрытых отчётов")}</p>
+                      ) : (
+                        <table className="w-full text-[12px]">
+                          <thead>
+                            <tr className="border-b border-slate-100 text-left text-[11px] font-medium text-slate-500">
+                              <th className="px-4 py-2">{t("Sana", "Дата")}</th>
+                              <th className="px-4 py-2">{t("Ombor", "Склад")}</th>
+                              <th className="px-4 py-2">{t("Holat", "Статус")}</th>
+                              <th className="px-4 py-2"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {unclosedReports.map((r) => (
+                              <tr key={r.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                                <td className="px-4 py-2 font-mono font-semibold text-slate-700">
+                                  {r.report_date}
+                                </td>
+                                <td className="px-4 py-2 text-slate-600">{r.warehouse_name}</td>
+                                <td className="px-4 py-2">
+                                  <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-semibold", STATUS_COLOR[r.status] ?? "bg-slate-100 text-slate-600")}>
+                                    {STATUS_LABEL[r.status] ?? r.status}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                  <Link
+                                    href={`/warehouse/daily-report?warehouse_id=${r.warehouse_id}&date=${r.report_date}`}
+                                    className="font-medium text-blue-600 hover:underline"
+                                  >
+                                    {t("Ochish →", "Открыть →")}
+                                  </Link>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </Card>
       )}

@@ -123,7 +123,13 @@ export default function ActiveLotPage() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-2xl font-bold font-mono text-slate-800">{lot.lot_number}</span>
+                  <Link
+                    href={`/master/lots/${lot.lot_id}`}
+                    className="text-2xl font-bold font-mono text-slate-800 hover:text-blue-600 hover:underline"
+                    title={t("Master lotga o'tish", "Перейти к мастер-лоту")}
+                  >
+                    {lot.lot_number}
+                  </Link>
                   <Badge variant={lot.status === "OPEN" ? "success" : "default"}>{lot.status}</Badge>
                 </div>
                 <p className="text-sm text-slate-500">

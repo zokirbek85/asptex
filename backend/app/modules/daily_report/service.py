@@ -186,8 +186,19 @@ class DailyReportService:
 
         # Load warehouse type to apply raw-cotton stock rules
         from app.modules.warehouse.models import Warehouse as WarehouseModel
+        from app.modules.lot.models import Lot as LotModel
         wh = await self.session.get(WarehouseModel, report.warehouse_id)
         is_raw_cotton = wh is not None and wh.warehouse_type == WarehouseType.RAW_COTTON
+
+        # Batch-load lot numbers for denormalization in stock transactions
+        lot_ids = {line.lot_id for line in data.lines if line.lot_id}
+        lot_number_map: dict[uuid.UUID, str] = {}
+        if lot_ids:
+            from sqlalchemy import select as sa_select
+            rows = await self.session.execute(
+                sa_select(LotModel.id, LotModel.lot_number).where(LotModel.id.in_(lot_ids))
+            )
+            lot_number_map = {r.id: r.lot_number for r in rows}
 
         # Replace lines with submitted set
         lines_dicts = [
@@ -212,7 +223,9 @@ class DailyReportService:
 
         # Post transactions for each line
         for line in report.lines:
-            if Decimal(str(line.quantity_kg)) == Decimal("0"):
+            kg_zero = Decimal(str(line.quantity_kg)) == Decimal("0")
+            units_zero = not line.quantity_units or line.quantity_units == 0
+            if kg_zero and units_zero:
                 continue
 
             tx_type, direction = _resolve_tx(DailyReportLineCreate(
@@ -261,6 +274,7 @@ class DailyReportService:
                 reference_id=report.id,
                 reference_line_id=line.id,
                 lot_id=stock_lot_id,
+                lot_number=lot_number_map.get(stock_lot_id) if stock_lot_id else None,
                 count_id=line.count_id,
                 owner_id=line.owner_id,
                 waste_type=line.waste_type,
@@ -286,6 +300,21 @@ class DailyReportService:
             after_data={"status": "SUBMITTED", "lines": len(report.lines)},
         )
         return report
+
+    async def delete_draft(self, report_id: uuid.UUID, ctx: AuditContext) -> None:
+        report = await self.repo.get_with_lines(report_id)
+        if report is None:
+            raise NotFoundError("DailyReport", report_id)
+        if report.status != ReportStatus.DRAFT:
+            raise BusinessRuleViolationError("Faqat DRAFT holatidagi hisobotni o'chirish mumkin")
+        await self.session.delete(report)
+        await self.audit.log(
+            ctx=ctx,
+            entity_type="daily_report",
+            action=AuditAction.DELETE,
+            entity_id=report.id,
+            entity_display=str(report.report_date),
+        )
 
     async def close(self, report_id: uuid.UUID, ctx: AuditContext) -> DailyReport:
         report = await self.repo.get_with_lines(report_id)
