@@ -12,6 +12,8 @@ from app.modules.daily_report.schemas import (
     DailyReportReopen,
     DailyReportSubmit,
     OpeningBalanceLine,
+    TollingWarning,
+    WarehouseRunningBalance,
 )
 from app.modules.daily_report.service import DailyReportService
 from app.shared.enums import ReportStatus
@@ -27,7 +29,11 @@ def _ctx(request: Request, cu):
     )
 
 
-def _build(report, opening_balance: list[OpeningBalanceLine] | None = None) -> DailyReportResponse:
+def _build(
+    report,
+    opening_balance: list[OpeningBalanceLine] | None = None,
+    tolling_warnings: list[TollingWarning] | None = None,
+) -> DailyReportResponse:
     return DailyReportResponse(
         id=report.id,
         company_id=report.company_id,
@@ -62,6 +68,7 @@ def _build(report, opening_balance: list[OpeningBalanceLine] | None = None) -> D
         reopen_count=report.reopen_count or 0,
         notes=report.notes,
         created_at=report.created_at,
+        tolling_warnings=tolling_warnings,
     )
 
 
@@ -95,7 +102,7 @@ async def get_fg_production_total(
     current_user: CurrentUserDep,
     report_date: date = Query(...),
 ) -> dict:
-    from app.modules.daily_report.models import DailyReportLine
+    from app.modules.daily_report.models import DailyReport, DailyReportLine
     from app.modules.warehouse.models import Warehouse
     from app.shared.enums import WarehouseType, LineCategory, ReportStatus
 
@@ -196,11 +203,11 @@ async def submit_report(
 ) -> DailyReportResponse:
     async with session.begin():
         svc = DailyReportService(session)
-        report = await svc.submit(report_id, body, _ctx(request, current_user))
+        report, tolling_warnings = await svc.submit(report_id, body, _ctx(request, current_user))
         opening = await svc.get_opening_balance(
             current_user.company_id, report.warehouse_id, report.report_date
         )
-    return _build(report, opening)
+    return _build(report, opening, tolling_warnings)
 
 
 @router.post("/{report_id}/close", response_model=DailyReportResponse)
@@ -231,6 +238,22 @@ async def reopen_report(
             current_user.company_id, report.warehouse_id, report.report_date
         )
     return _build(report, opening)
+
+
+@router.get("/warehouses/{warehouse_id}/running-balance", response_model=WarehouseRunningBalance)
+async def get_running_balance(
+    warehouse_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+    as_of_date: date | None = Query(None, description="YYYY-MM-DD, bo'sh bo'lsa bugungi sana"),
+) -> WarehouseRunningBalance:
+    async with session.begin():
+        svc = DailyReportService(session)
+        return await svc.get_warehouse_running_balance(
+            company_id=current_user.company_id,
+            warehouse_id=warehouse_id,
+            as_of_date=as_of_date,
+        )
 
 
 @router.delete("/{report_id}", status_code=status.HTTP_204_NO_CONTENT)

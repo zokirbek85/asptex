@@ -226,6 +226,46 @@ class StockRepository(BaseRepository[StockTransaction]):
         await self.session.refresh(tx)
         return tx
 
+    async def get_tolling_raw_actual(
+        self,
+        company_id: uuid.UUID,
+        owner_id: uuid.UUID,
+    ) -> Decimal:
+        """Sum of TOLLING_RAW_RECEIPT inbound for a given tolling owner (all lots)."""
+        result = await self.session.execute(
+            select(
+                func.coalesce(func.sum(StockTransaction.quantity_kg), 0)
+            ).where(
+                StockTransaction.company_id == company_id,
+                StockTransaction.transaction_type == TransactionType.TOLLING_RAW_RECEIPT,
+                StockTransaction.owner_id == owner_id,
+                StockTransaction.direction == 1,
+            )
+        )
+        return Decimal(str(result.scalar_one() or 0))
+
+    async def get_tolling_fg_shipped(
+        self,
+        company_id: uuid.UUID,
+        warehouse_id: uuid.UUID,
+        lot_id: uuid.UUID,
+        owner_id: uuid.UUID,
+    ) -> Decimal:
+        """Sum of SHIPMENT_OUTBOUND kg for a tolling owner in a specific FG lot."""
+        result = await self.session.execute(
+            select(
+                func.coalesce(func.sum(StockTransaction.quantity_kg), 0)
+            ).where(
+                StockTransaction.company_id == company_id,
+                StockTransaction.warehouse_id == warehouse_id,
+                StockTransaction.lot_id == lot_id,
+                StockTransaction.owner_id == owner_id,
+                StockTransaction.transaction_type == TransactionType.SHIPMENT_OUTBOUND,
+                StockTransaction.direction == -1,
+            )
+        )
+        return Decimal(str(result.scalar_one() or 0))
+
     async def get_slow_stock_lots(
         self,
         company_id: uuid.UUID,

@@ -7,7 +7,7 @@ import { Plus, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 
-import { tollingApi, type TollingDistributionStatus } from "@/lib/api/tolling";
+import { tollingApi, type TollingDistributionStatus, type LotStockSummary } from "@/lib/api/tolling";
 import { useAuthStore } from "@/lib/stores/auth";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -44,6 +44,12 @@ export default function DistributionsPage() {
     enabled: !!activeLot,
   });
 
+  const { data: stockSummary } = useQuery({
+    queryKey: ["tolling-lot-stock-summary", activeLot?.id],
+    queryFn: () => tollingApi.getLotStockSummary(activeLot!.id),
+    enabled: !!activeLot,
+  });
+
   const dists = distData?.items ?? [];
 
   return (
@@ -73,6 +79,24 @@ export default function DistributionsPage() {
           </div>
         )}
       </div>
+
+      {/* Warehouse stock summary */}
+      {activeLot && stockSummary && (
+        <div className="mb-4 grid grid-cols-3 gap-3">
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+            <p className="text-xs font-medium text-green-700 mb-1">{t("Omborga kirdi (kg)", "Поступило на склад (кг)")}</p>
+            <p className="text-xl font-bold tabular-nums text-green-800">{fmt3(stockSummary.total_kirimi_kg)}</p>
+          </div>
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+            <p className="text-xs font-medium text-red-700 mb-1">{t("Ombordan chiqdi (kg)", "Отгружено со склада (кг)")}</p>
+            <p className="text-xl font-bold tabular-nums text-red-800">{fmt3(stockSummary.total_chiqimi_kg)}</p>
+          </div>
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <p className="text-xs font-medium text-blue-700 mb-1">{t("Ombordagi qoldiq (kg)", "Остаток на складе (кг)")}</p>
+            <p className="text-xl font-bold tabular-nums text-blue-800">{fmt3(stockSummary.total_qoldiq_kg)}</p>
+          </div>
+        </div>
+      )}
 
       {!activeLot ? (
         <div className="rounded-xl border-2 border-dashed border-slate-200 p-8 text-center text-slate-400">

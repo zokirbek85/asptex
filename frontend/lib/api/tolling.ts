@@ -101,6 +101,17 @@ export interface LotSummaryRow {
   total_net_kg: number;
   fee_amount_uzs: number | null;
   fee_amount_usd: number | null;
+  stock_kirimi_kg: number;
+  stock_chiqimi_kg: number;
+  stock_qoldiq_kg: number;
+}
+
+export interface LotStockSummary {
+  lot_id: string;
+  lot_number: string;
+  total_kirimi_kg: number;
+  total_chiqimi_kg: number;
+  total_qoldiq_kg: number;
 }
 
 export interface LotSummary {
@@ -207,6 +218,9 @@ export const tollingApi = {
   // Reports
   getLotSummary: (lotId: string) =>
     apiClient.get<LotSummary>(`/tolling/reports/lot-summary/${lotId}`),
+
+  getLotStockSummary: (lotId: string) =>
+    apiClient.get<LotStockSummary>(`/tolling/lots/${lotId}/stock-summary`),
 
   getDailyRegister: (params?: {
     tolling_lot_id?: string;

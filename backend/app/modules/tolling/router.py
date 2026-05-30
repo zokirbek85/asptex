@@ -11,6 +11,7 @@ from app.modules.tolling.schemas import (
     DistributionCreate,
     DistributionOut,
     DistributionUpdate,
+    LotStockSummaryOut,
     LotSummaryOut,
     DailyRegisterOut,
     ParticipantAdd,
@@ -91,6 +92,17 @@ async def get_lot(
     async with session.begin():
         svc = TollingService(session)
         return await svc.get_lot(lot_id)
+
+
+@router.get("/lots/{lot_id}/stock-summary", response_model=LotStockSummaryOut)
+async def lot_stock_summary(
+    lot_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> LotStockSummaryOut:
+    async with session.begin():
+        svc = TollingService(session)
+        return await svc.get_lot_stock_summary(current_user.company_id, lot_id)
 
 
 @router.post("/lots/{lot_id}/close", response_model=TollingLotOut)

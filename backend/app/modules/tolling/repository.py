@@ -161,6 +161,36 @@ class TollingDistributionRepository(BaseRepository[TollingDistribution]):
             TollingDistribution.status == TollingDistributionStatus.CONFIRMED,
         )
 
+    async def sum_fg_for_participant(
+        self,
+        tolling_lot_id: uuid.UUID,
+        counterparty_id: uuid.UUID,
+    ) -> tuple[Decimal, Decimal, Decimal]:
+        """
+        Returns (total_gross_kg, total_fee_kg, total_net_kg) from CONFIRMED
+        distribution lines for the given participant.
+        """
+        from decimal import Decimal as D
+        from sqlalchemy import func as sqlfunc
+        from app.shared.enums import TollingLineType
+
+        result = await self.session.execute(
+            select(
+                sqlfunc.coalesce(sqlfunc.sum(TollingDistributionLine.gross_kg), 0).label("gross"),
+                sqlfunc.coalesce(sqlfunc.sum(TollingDistributionLine.fee_kg), 0).label("fee"),
+                sqlfunc.coalesce(sqlfunc.sum(TollingDistributionLine.net_kg), 0).label("net"),
+            )
+            .join(TollingDistribution, TollingDistributionLine.distribution_id == TollingDistribution.id)
+            .where(
+                TollingDistribution.tolling_lot_id == tolling_lot_id,
+                TollingDistribution.status == TollingDistributionStatus.CONFIRMED,
+                TollingDistributionLine.counterparty_id == counterparty_id,
+                TollingDistributionLine.line_type == TollingLineType.OWNER_NET,
+            )
+        )
+        row = result.one()
+        return D(str(row.gross)), D(str(row.fee)), D(str(row.net))
+
     async def sum_fg_for_lot(self, tolling_lot_id: uuid.UUID) -> float:
         from sqlalchemy import func
         result = await self.session.execute(

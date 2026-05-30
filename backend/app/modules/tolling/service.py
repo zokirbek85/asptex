@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import case as sa_case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessRuleViolationError, NotFoundError
@@ -30,6 +30,7 @@ from app.modules.tolling.schemas import (
     DistributionUpdate,
     DailyRegisterOut,
     DailyRegisterRow,
+    LotStockSummaryOut,
     LotSummaryOut,
     LotSummaryParticipantRow,
     ParticipantAdd,
@@ -695,6 +696,7 @@ class TollingService:
         if tl is None:
             raise NotFoundError("TollingLot", lot_id)
 
+        from app.modules.stock.models import StockTransaction
         from sqlalchemy import func
         from app.modules.tolling.models import TollingDistributionLine as TDL
 
@@ -723,9 +725,37 @@ class TollingService:
         total_raw = sum(Decimal(str(p.raw_kg_delivered)) for p in tl.participants)
         participant_raw = {p.counterparty_id: Decimal(str(p.raw_kg_delivered)) for p in tl.participants}
 
+        # Stock kirimi/chiqimi/qoldiq per owner from FG warehouse
+        fg_wh = await self._get_warehouse(company_id, WarehouseType.FINISHED_GOODS)
+        stock_by_owner: dict[uuid.UUID, tuple[Decimal, Decimal]] = {}
+        if fg_wh and cp_ids:
+            stock_result = await self.session.execute(
+                select(
+                    StockTransaction.owner_id,
+                    func.coalesce(func.sum(
+                        sa_case((StockTransaction.direction == 1, StockTransaction.quantity_kg), else_=0)
+                    ), 0).label("kirimi"),
+                    func.coalesce(func.sum(
+                        sa_case((StockTransaction.direction == -1, StockTransaction.quantity_kg), else_=0)
+                    ), 0).label("chiqimi"),
+                )
+                .where(
+                    StockTransaction.company_id == company_id,
+                    StockTransaction.warehouse_id == fg_wh.id,
+                    StockTransaction.lot_id == tl.lot_id,
+                    StockTransaction.owner_id.in_(cp_ids),
+                )
+                .group_by(StockTransaction.owner_id)
+            )
+            stock_by_owner = {
+                r.owner_id: (Decimal(str(r.kirimi or 0)), Decimal(str(r.chiqimi or 0)))
+                for r in stock_result
+            }
+
         summary_rows = []
         for r in rows_result:
             share = (participant_raw.get(r.counterparty_id, Decimal("0")) / total_raw * 100) if total_raw else Decimal("0")
+            kirimi, chiqimi = stock_by_owner.get(r.counterparty_id, (Decimal("0"), Decimal("0")))
             summary_rows.append(LotSummaryParticipantRow(
                 counterparty_id=r.counterparty_id,
                 counterparty_name=cp_names.get(r.counterparty_id, ""),
@@ -736,6 +766,9 @@ class TollingService:
                 total_net_kg=Decimal(str(r.total_net or 0)),
                 fee_amount_uzs=Decimal(str(r.total_uzs)) if r.total_uzs else None,
                 fee_amount_usd=Decimal(str(r.total_usd)) if r.total_usd else None,
+                stock_kirimi_kg=kirimi,
+                stock_chiqimi_kg=chiqimi,
+                stock_qoldiq_kg=kirimi - chiqimi,
             ))
 
         totals_result = await self.session.execute(
@@ -799,6 +832,49 @@ class TollingService:
             date_from=date_from,
             date_to=date_to,
             rows=reg_rows,
+        )
+
+    async def get_lot_stock_summary(self, company_id: uuid.UUID, lot_id: uuid.UUID) -> LotStockSummaryOut:
+        from app.modules.stock.models import StockTransaction
+        from sqlalchemy import func
+
+        tl = await self.lot_repo.get_with_participants(lot_id)
+        if tl is None:
+            raise NotFoundError("TollingLot", lot_id)
+
+        lot = await self.session.get(Lot, tl.lot_id)
+        fg_wh = await self._get_warehouse(company_id, WarehouseType.FINISHED_GOODS)
+
+        total_kirimi = Decimal("0")
+        total_chiqimi = Decimal("0")
+
+        if fg_wh:
+            result = await self.session.execute(
+                select(
+                    func.coalesce(func.sum(
+                        sa_case((StockTransaction.direction == 1, StockTransaction.quantity_kg), else_=0)
+                    ), 0).label("kirimi"),
+                    func.coalesce(func.sum(
+                        sa_case((StockTransaction.direction == -1, StockTransaction.quantity_kg), else_=0)
+                    ), 0).label("chiqimi"),
+                )
+                .where(
+                    StockTransaction.company_id == company_id,
+                    StockTransaction.warehouse_id == fg_wh.id,
+                    StockTransaction.lot_id == tl.lot_id,
+                    StockTransaction.owner_id.isnot(None),
+                )
+            )
+            row = result.one()
+            total_kirimi = Decimal(str(row.kirimi or 0))
+            total_chiqimi = Decimal(str(row.chiqimi or 0))
+
+        return LotStockSummaryOut(
+            lot_id=tl.id,
+            lot_number=lot.lot_number if lot else str(tl.id),
+            total_kirimi_kg=total_kirimi,
+            total_chiqimi_kg=total_chiqimi,
+            total_qoldiq_kg=total_kirimi - total_chiqimi,
         )
 
     # ── Warehouse helpers ─────────────────────────────────────────────────────

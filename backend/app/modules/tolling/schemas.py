@@ -151,6 +151,17 @@ class LotSummaryParticipantRow(AppBaseModel):
     total_net_kg: Decimal
     fee_amount_uzs: Decimal | None
     fee_amount_usd: Decimal | None
+    stock_kirimi_kg: Decimal = Decimal("0")
+    stock_chiqimi_kg: Decimal = Decimal("0")
+    stock_qoldiq_kg: Decimal = Decimal("0")
+
+
+class LotStockSummaryOut(AppBaseModel):
+    lot_id: uuid.UUID
+    lot_number: str
+    total_kirimi_kg: Decimal
+    total_chiqimi_kg: Decimal
+    total_qoldiq_kg: Decimal
 
 
 class LotSummaryOut(AppBaseModel):

@@ -69,6 +69,9 @@ export default function LotSummaryPage() {
                   <th className="px-4 py-3 text-right">{t("Hizmat haqi (UZS)", "Услуга (UZS)")}</th>
                   <th className="px-4 py-3 text-right">{t("Hizmat haqi (USD)", "Услуга (USD)")}</th>
                   <th className="px-4 py-3 text-right">{t("Netto qabul (kg)", "Нетто (кг)")}</th>
+                  <th className="px-4 py-3 text-right bg-green-50 text-green-700">{t("Omborga kirdi", "В склад")}</th>
+                  <th className="px-4 py-3 text-right bg-red-50 text-red-700">{t("Ombordan chiqdi", "Из склада")}</th>
+                  <th className="px-4 py-3 text-right bg-blue-50 text-blue-700">{t("Qoldiq", "Остаток")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -82,6 +85,9 @@ export default function LotSummaryPage() {
                     <td className="px-4 py-2.5 text-right tabular-nums">{row.fee_amount_uzs != null ? Number(row.fee_amount_uzs).toLocaleString("uz-UZ", { minimumFractionDigits: 2 }) : "—"}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{row.fee_amount_usd != null ? Number(row.fee_amount_usd).toLocaleString("uz-UZ", { minimumFractionDigits: 4 }) : "—"}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-green-700">{fmt3(Number(row.total_net_kg))}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-green-700 bg-green-50/50">{fmt3(Number(row.stock_kirimi_kg))}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-red-600 bg-red-50/50">{fmt3(Number(row.stock_chiqimi_kg))}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-bold text-blue-700 bg-blue-50/50">{fmt3(Number(row.stock_qoldiq_kg))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -97,6 +103,15 @@ export default function LotSummaryPage() {
                   <td className="px-4 py-2.5"></td>
                   <td className="px-4 py-2.5"></td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-green-700">{fmt3(Number(summary.total_net_kg))}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-green-700 bg-green-50">
+                    {fmt3(summary.rows.reduce((s, r) => s + Number(r.stock_kirimi_kg), 0))}
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-red-600 bg-red-50">
+                    {fmt3(summary.rows.reduce((s, r) => s + Number(r.stock_chiqimi_kg), 0))}
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-blue-700 bg-blue-50">
+                    {fmt3(summary.rows.reduce((s, r) => s + Number(r.stock_qoldiq_kg), 0))}
+                  </td>
                 </tr>
               </tfoot>
             </table>
