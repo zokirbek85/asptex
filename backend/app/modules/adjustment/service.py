@@ -92,8 +92,8 @@ class AdjustmentService:
         )
         return self._build_response(adj)
 
-    async def get(self, adjustment_id: uuid.UUID) -> AdjustmentResponse:
-        adj = await self.repo.get_with_lines(adjustment_id)
+    async def get(self, adjustment_id: uuid.UUID, company_id: uuid.UUID) -> AdjustmentResponse:
+        adj = await self.repo.get_with_lines(adjustment_id, company_id)
         if adj is None:
             raise NotFoundError("InventoryAdjustment", adjustment_id)
         return self._build_response(adj)
@@ -114,10 +114,11 @@ class AdjustmentService:
     async def update_lines(
         self,
         adjustment_id: uuid.UUID,
+        company_id: uuid.UUID,
         lines: list[AdjustmentLineCreate],
         ctx: AuditContext,
     ) -> AdjustmentResponse:
-        adj = await self.repo.get_with_lines(adjustment_id)
+        adj = await self.repo.get_with_lines(adjustment_id, company_id)
         if adj is None:
             raise NotFoundError("InventoryAdjustment", adjustment_id)
         if adj.status != AdjustmentStatus.DRAFT:
@@ -156,9 +157,10 @@ class AdjustmentService:
     async def post(
         self,
         adjustment_id: uuid.UUID,
+        company_id: uuid.UUID,
         ctx: AuditContext,
     ) -> AdjustmentResponse:
-        adj = await self.repo.get_with_lines(adjustment_id)
+        adj = await self.repo.get_with_lines(adjustment_id, company_id)
         if adj is None:
             raise NotFoundError("InventoryAdjustment", adjustment_id)
         if adj.status != AdjustmentStatus.DRAFT:

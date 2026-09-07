@@ -12,11 +12,13 @@ from app.shared.enums import ShipmentStatus
 class ShipmentRepository(BaseRepository[Shipment]):
     model = Shipment
 
-    async def get_with_lines(self, shipment_id: uuid.UUID) -> Shipment | None:
+    async def get_with_lines(
+        self, shipment_id: uuid.UUID, company_id: uuid.UUID
+    ) -> Shipment | None:
         result = await self.session.execute(
             select(Shipment)
             .options(selectinload(Shipment.lines))
-            .where(Shipment.id == shipment_id)
+            .where(Shipment.id == shipment_id, Shipment.company_id == company_id)
         )
         return result.scalar_one_or_none()
 

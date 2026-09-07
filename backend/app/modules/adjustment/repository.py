@@ -11,11 +11,16 @@ from app.shared.enums import AdjustmentStatus
 class AdjustmentRepository(BaseRepository[InventoryAdjustment]):
     model = InventoryAdjustment
 
-    async def get_with_lines(self, adjustment_id: uuid.UUID) -> InventoryAdjustment | None:
+    async def get_with_lines(
+        self, adjustment_id: uuid.UUID, company_id: uuid.UUID
+    ) -> InventoryAdjustment | None:
         result = await self.session.execute(
             select(InventoryAdjustment)
             .options(selectinload(InventoryAdjustment.lines))
-            .where(InventoryAdjustment.id == adjustment_id)
+            .where(
+                InventoryAdjustment.id == adjustment_id,
+                InventoryAdjustment.company_id == company_id,
+            )
         )
         return result.scalar_one_or_none()
 

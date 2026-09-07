@@ -91,7 +91,7 @@ async def get_lot(
 ) -> TollingLotOut:
     async with session.begin():
         svc = TollingService(session)
-        return await svc.get_lot(lot_id)
+        return await svc.get_lot(lot_id, current_user.company_id)
 
 
 @router.get("/lots/{lot_id}/stock-summary", response_model=LotStockSummaryOut)
@@ -115,7 +115,7 @@ async def close_lot(
 ) -> TollingLotOut:
     async with session.begin():
         svc = TollingService(session)
-        return await svc.close_lot(lot_id, body, _ctx(request, current_user))
+        return await svc.close_lot(lot_id, current_user.company_id, body, _ctx(request, current_user))
 
 
 # ── Participants ──────────────────────────────────────────────────────────────
@@ -130,7 +130,7 @@ async def add_participant(
 ) -> ParticipantOut:
     async with session.begin():
         svc = TollingService(session)
-        return await svc.add_participant(lot_id, body, _ctx(request, current_user))
+        return await svc.add_participant(lot_id, current_user.company_id, body, _ctx(request, current_user))
 
 
 @router.patch("/lots/{lot_id}/participants/{participant_id}", response_model=ParticipantOut)
@@ -144,7 +144,9 @@ async def update_participant(
 ) -> ParticipantOut:
     async with session.begin():
         svc = TollingService(session)
-        return await svc.update_participant(lot_id, participant_id, body, _ctx(request, current_user))
+        return await svc.update_participant(
+            lot_id, current_user.company_id, participant_id, body, _ctx(request, current_user)
+        )
 
 
 @router.delete("/lots/{lot_id}/participants/{participant_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -156,7 +158,7 @@ async def remove_participant(
 ) -> None:
     async with session.begin():
         svc = TollingService(session)
-        await svc.remove_participant(lot_id, participant_id)
+        await svc.remove_participant(lot_id, current_user.company_id, participant_id)
 
 
 # ── Distributions ─────────────────────────────────────────────────────────────
@@ -199,7 +201,7 @@ async def get_distribution(
 ) -> DistributionOut:
     async with session.begin():
         svc = TollingService(session)
-        return await svc.get_distribution(dist_id)
+        return await svc.get_distribution(dist_id, current_user.company_id)
 
 
 @router.patch("/distributions/{dist_id}", response_model=DistributionOut)
@@ -212,7 +214,9 @@ async def update_distribution(
 ) -> DistributionOut:
     async with session.begin():
         svc = TollingService(session)
-        return await svc.update_distribution(dist_id, body, _ctx(request, current_user))
+        return await svc.update_distribution(
+            dist_id, current_user.company_id, body, _ctx(request, current_user)
+        )
 
 
 @router.post("/distributions/{dist_id}/preview", response_model=DistributionOut)
@@ -223,7 +227,7 @@ async def preview_distribution(
 ) -> DistributionOut:
     async with session.begin():
         svc = TollingService(session)
-        return await svc.preview_distribution(dist_id)
+        return await svc.preview_distribution(dist_id, current_user.company_id)
 
 
 @router.post("/distributions/{dist_id}/confirm", response_model=DistributionOut)
@@ -235,7 +239,9 @@ async def confirm_distribution(
 ) -> DistributionOut:
     async with session.begin():
         svc = TollingService(session)
-        return await svc.confirm_distribution(dist_id, _ctx(request, current_user))
+        return await svc.confirm_distribution(
+            dist_id, current_user.company_id, _ctx(request, current_user)
+        )
 
 
 @router.post("/distributions/{dist_id}/unconfirm", response_model=DistributionOut)
@@ -247,7 +253,9 @@ async def unconfirm_distribution(
 ) -> DistributionOut:
     async with session.begin():
         svc = TollingService(session)
-        return await svc.unconfirm_distribution(dist_id, _ctx(request, current_user))
+        return await svc.unconfirm_distribution(
+            dist_id, current_user.company_id, _ctx(request, current_user)
+        )
 
 
 # ── Reports ───────────────────────────────────────────────────────────────────

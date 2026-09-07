@@ -93,7 +93,7 @@ class DailyReportService:
         )
         if existing:
             # Reload with lines eagerly so callers can access report.lines safely
-            return await self.repo.get_with_lines(existing.id)
+            return await self.repo.get_with_lines(existing.id, company_id)
 
         report = await self.repo.create(
             company_id=company_id,
@@ -112,10 +112,10 @@ class DailyReportService:
             after_data={"warehouse_id": str(data.warehouse_id), "report_date": str(data.report_date)},
         )
         # Fresh report has empty lines; reload with selectinload for consistency
-        return await self.repo.get_with_lines(report.id)
+        return await self.repo.get_with_lines(report.id, company_id)
 
-    async def get(self, report_id: uuid.UUID) -> DailyReport:
-        report = await self.repo.get_with_lines(report_id)
+    async def get(self, report_id: uuid.UUID, company_id: uuid.UUID) -> DailyReport:
+        report = await self.repo.get_with_lines(report_id, company_id)
         if report is None:
             raise NotFoundError("DailyReport", report_id)
         return report
@@ -152,10 +152,11 @@ class DailyReportService:
     async def update_lines(
         self,
         report_id: uuid.UUID,
+        company_id: uuid.UUID,
         data: DailyReportSubmit,
         ctx: AuditContext,
     ) -> DailyReport:
-        report = await self.repo.get_with_lines(report_id)
+        report = await self.repo.get_with_lines(report_id, company_id)
         if report is None:
             raise NotFoundError("DailyReport", report_id)
         if report.status != ReportStatus.DRAFT:
@@ -229,10 +230,11 @@ class DailyReportService:
     async def submit(
         self,
         report_id: uuid.UUID,
+        company_id: uuid.UUID,
         data: DailyReportSubmit,
         ctx: AuditContext,
     ) -> tuple[DailyReport, list[TollingWarning] | None]:
-        report = await self.repo.get_with_lines(report_id)
+        report = await self.repo.get_with_lines(report_id, company_id)
         if report is None:
             raise NotFoundError("DailyReport", report_id)
         if report.status != ReportStatus.DRAFT:
@@ -540,8 +542,10 @@ class DailyReportService:
             tolling_lots=tolling_summaries,
         )
 
-    async def delete_draft(self, report_id: uuid.UUID, ctx: AuditContext) -> None:
-        report = await self.repo.get_with_lines(report_id)
+    async def delete_draft(
+        self, report_id: uuid.UUID, company_id: uuid.UUID, ctx: AuditContext
+    ) -> None:
+        report = await self.repo.get_with_lines(report_id, company_id)
         if report is None:
             raise NotFoundError("DailyReport", report_id)
         if report.status != ReportStatus.DRAFT:
@@ -555,8 +559,10 @@ class DailyReportService:
             entity_display=str(report.report_date),
         )
 
-    async def close(self, report_id: uuid.UUID, ctx: AuditContext) -> DailyReport:
-        report = await self.repo.get_with_lines(report_id)
+    async def close(
+        self, report_id: uuid.UUID, company_id: uuid.UUID, ctx: AuditContext
+    ) -> DailyReport:
+        report = await self.repo.get_with_lines(report_id, company_id)
         if report is None:
             raise NotFoundError("DailyReport", report_id)
         if report.status != ReportStatus.SUBMITTED:
@@ -579,10 +585,11 @@ class DailyReportService:
     async def reopen(
         self,
         report_id: uuid.UUID,
+        company_id: uuid.UUID,
         data: DailyReportReopen,
         ctx: AuditContext,
     ) -> DailyReport:
-        report = await self.repo.get_with_lines(report_id)
+        report = await self.repo.get_with_lines(report_id, company_id)
         if report is None:
             raise NotFoundError("DailyReport", report_id)
         if report.status not in (ReportStatus.SUBMITTED, ReportStatus.CLOSED):

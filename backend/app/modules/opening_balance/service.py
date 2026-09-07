@@ -89,11 +89,11 @@ class OpeningBalanceService:
             after_data={"warehouse_id": str(data.warehouse_id), "balance_date": str(data.balance_date)},
         )
         # Reload with lines to avoid lazy-load outside greenlet
-        entry = await self.repo.get_with_lines(entry.id)
+        entry = await self.repo.get_with_lines(entry.id, company_id)
         return self._build_response(entry)
 
-    async def get(self, entry_id: uuid.UUID) -> OpeningBalanceResponse:
-        entry = await self.repo.get_with_lines(entry_id)
+    async def get(self, entry_id: uuid.UUID, company_id: uuid.UUID) -> OpeningBalanceResponse:
+        entry = await self.repo.get_with_lines(entry_id, company_id)
         if entry is None:
             raise NotFoundError("OpeningBalanceEntry", entry_id)
         return self._build_response(entry)
@@ -114,10 +114,11 @@ class OpeningBalanceService:
     async def update_lines(
         self,
         entry_id: uuid.UUID,
+        company_id: uuid.UUID,
         lines: list[OpeningBalanceLineCreate],
         ctx: AuditContext,
     ) -> OpeningBalanceResponse:
-        entry = await self.repo.get_with_lines(entry_id)
+        entry = await self.repo.get_with_lines(entry_id, company_id)
         if entry is None:
             raise NotFoundError("OpeningBalanceEntry", entry_id)
         if entry.status != AdjustmentStatus.DRAFT:
@@ -182,9 +183,10 @@ class OpeningBalanceService:
     async def post(
         self,
         entry_id: uuid.UUID,
+        company_id: uuid.UUID,
         ctx: AuditContext,
     ) -> OpeningBalanceResponse:
-        entry = await self.repo.get_with_lines(entry_id)
+        entry = await self.repo.get_with_lines(entry_id, company_id)
         if entry is None:
             raise NotFoundError("OpeningBalanceEntry", entry_id)
         if entry.status != AdjustmentStatus.DRAFT:
@@ -237,9 +239,10 @@ class OpeningBalanceService:
     async def delete(
         self,
         entry_id: uuid.UUID,
+        company_id: uuid.UUID,
         ctx: AuditContext,
     ) -> None:
-        entry = await self.repo.get_with_lines(entry_id)
+        entry = await self.repo.get_with_lines(entry_id, company_id)
         if entry is None:
             raise NotFoundError("OpeningBalanceEntry", entry_id)
         if entry.status != AdjustmentStatus.DRAFT:

@@ -85,7 +85,7 @@ async def get_shipment(
 ) -> ShipmentResponse:
     async with session.begin():
         svc = ShipmentService(session)
-        shipment = await svc.get(shipment_id)
+        shipment = await svc.get(shipment_id, current_user.company_id)
         return await svc.build_response(shipment)
 
 
@@ -100,5 +100,7 @@ async def cancel_line(
 ) -> ShipmentResponse:
     async with session.begin():
         svc = ShipmentService(session)
-        shipment = await svc.cancel_line(shipment_id, line_id, body, _ctx(request, current_user))
+        shipment = await svc.cancel_line(
+            shipment_id, current_user.company_id, line_id, body, _ctx(request, current_user)
+        )
         return await svc.build_response(shipment)

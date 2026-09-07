@@ -33,11 +33,13 @@ class TollingLotRepository(BaseRepository[TollingLot]):
         )
         return result.scalar_one_or_none()
 
-    async def get_with_participants(self, lot_id: uuid.UUID) -> TollingLot | None:
+    async def get_with_participants(
+        self, lot_id: uuid.UUID, company_id: uuid.UUID
+    ) -> TollingLot | None:
         result = await self.session.execute(
             select(TollingLot)
             .options(selectinload(TollingLot.participants))
-            .where(TollingLot.id == lot_id)
+            .where(TollingLot.id == lot_id, TollingLot.company_id == company_id)
         )
         return result.scalar_one_or_none()
 
@@ -75,14 +77,16 @@ class TollingParticipantRepository(BaseRepository[TollingLotParticipant]):
 class TollingDistributionRepository(BaseRepository[TollingDistribution]):
     model = TollingDistribution
 
-    async def get_full(self, dist_id: uuid.UUID) -> TollingDistribution | None:
+    async def get_full(
+        self, dist_id: uuid.UUID, company_id: uuid.UUID
+    ) -> TollingDistribution | None:
         result = await self.session.execute(
             select(TollingDistribution)
             .options(
                 selectinload(TollingDistribution.lines),
                 selectinload(TollingDistribution.raw_intakes).selectinload(TollingDailyRawIntake.participant),
             )
-            .where(TollingDistribution.id == dist_id)
+            .where(TollingDistribution.id == dist_id, TollingDistribution.company_id == company_id)
         )
         return result.scalar_one_or_none()
 

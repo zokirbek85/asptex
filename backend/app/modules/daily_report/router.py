@@ -137,7 +137,7 @@ async def lookup_report(
         )
         if existing is None:
             return None
-        report = await svc.repo.get_with_lines(existing.id)
+        report = await svc.repo.get_with_lines(existing.id, current_user.company_id)
         opening = await svc.get_opening_balance(
             current_user.company_id, warehouse_id, report_date
         )
@@ -169,7 +169,7 @@ async def get_report(
 ) -> DailyReportResponse:
     async with session.begin():
         svc = DailyReportService(session)
-        report = await svc.get(report_id)
+        report = await svc.get(report_id, current_user.company_id)
         opening = await svc.get_opening_balance(
             current_user.company_id, report.warehouse_id, report.report_date
         )
@@ -186,7 +186,9 @@ async def update_lines(
 ) -> DailyReportResponse:
     async with session.begin():
         svc = DailyReportService(session)
-        report = await svc.update_lines(report_id, body, _ctx(request, current_user))
+        report = await svc.update_lines(
+            report_id, current_user.company_id, body, _ctx(request, current_user)
+        )
         opening = await svc.get_opening_balance(
             current_user.company_id, report.warehouse_id, report.report_date
         )
@@ -203,7 +205,9 @@ async def submit_report(
 ) -> DailyReportResponse:
     async with session.begin():
         svc = DailyReportService(session)
-        report, tolling_warnings = await svc.submit(report_id, body, _ctx(request, current_user))
+        report, tolling_warnings = await svc.submit(
+            report_id, current_user.company_id, body, _ctx(request, current_user)
+        )
         opening = await svc.get_opening_balance(
             current_user.company_id, report.warehouse_id, report.report_date
         )
@@ -219,7 +223,7 @@ async def close_report(
 ) -> DailyReportResponse:
     async with session.begin():
         svc = DailyReportService(session)
-        report = await svc.close(report_id, _ctx(request, current_user))
+        report = await svc.close(report_id, current_user.company_id, _ctx(request, current_user))
     return _build(report)
 
 
@@ -233,7 +237,9 @@ async def reopen_report(
 ) -> DailyReportResponse:
     async with session.begin():
         svc = DailyReportService(session)
-        report = await svc.reopen(report_id, body, _ctx(request, current_user))
+        report = await svc.reopen(
+            report_id, current_user.company_id, body, _ctx(request, current_user)
+        )
         opening = await svc.get_opening_balance(
             current_user.company_id, report.warehouse_id, report.report_date
         )
@@ -265,4 +271,4 @@ async def delete_draft_report(
 ) -> None:
     async with session.begin():
         svc = DailyReportService(session)
-        await svc.delete_draft(report_id, _ctx(request, current_user))
+        await svc.delete_draft(report_id, current_user.company_id, _ctx(request, current_user))

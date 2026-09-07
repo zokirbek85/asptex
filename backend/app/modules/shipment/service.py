@@ -199,11 +199,12 @@ class ShipmentService:
     async def cancel_line(
         self,
         shipment_id: uuid.UUID,
+        company_id: uuid.UUID,
         line_id: uuid.UUID,
         data: ShipmentLineCancelRequest,
         ctx: AuditContext,
     ) -> Shipment:
-        shipment = await self.repo.get_with_lines(shipment_id)
+        shipment = await self.repo.get_with_lines(shipment_id, company_id)
         if shipment is None:
             raise NotFoundError("Shipment", shipment_id)
         if shipment.status == ShipmentStatus.CANCELLED:
@@ -288,8 +289,8 @@ class ShipmentService:
         )
         return shipment
 
-    async def get(self, shipment_id: uuid.UUID) -> Shipment:
-        shipment = await self.repo.get_with_lines(shipment_id)
+    async def get(self, shipment_id: uuid.UUID, company_id: uuid.UUID) -> Shipment:
+        shipment = await self.repo.get_with_lines(shipment_id, company_id)
         if shipment is None:
             raise NotFoundError("Shipment", shipment_id)
         return shipment

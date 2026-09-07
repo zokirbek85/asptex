@@ -58,7 +58,7 @@ async def get_opening_balance(
 ) -> OpeningBalanceResponse:
     async with session.begin():
         svc = OpeningBalanceService(session)
-        return await svc.get(entry_id)
+        return await svc.get(entry_id, current_user.company_id)
 
 
 @router.put("/{entry_id}/lines", response_model=OpeningBalanceResponse)
@@ -73,6 +73,7 @@ async def update_lines(
         svc = OpeningBalanceService(session)
         return await svc.update_lines(
             entry_id,
+            current_user.company_id,
             lines,
             current_user.to_audit_context(
                 ip_address=request.client.host if request.client else None,
@@ -92,6 +93,7 @@ async def post_opening_balance(
         svc = OpeningBalanceService(session)
         return await svc.post(
             entry_id,
+            current_user.company_id,
             current_user.to_audit_context(
                 ip_address=request.client.host if request.client else None,
                 user_agent=request.headers.get("User-Agent"),
@@ -110,6 +112,7 @@ async def delete_opening_balance(
         svc = OpeningBalanceService(session)
         await svc.delete(
             entry_id,
+            current_user.company_id,
             current_user.to_audit_context(
                 ip_address=request.client.host if request.client else None,
                 user_agent=request.headers.get("User-Agent"),

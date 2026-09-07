@@ -298,16 +298,16 @@ class TollingService:
             return None
         return await self._build_lot_out(tl)
 
-    async def get_lot(self, lot_id: uuid.UUID) -> TollingLotOut:
-        tl = await self.lot_repo.get_with_participants(lot_id)
+    async def get_lot(self, lot_id: uuid.UUID, company_id: uuid.UUID) -> TollingLotOut:
+        tl = await self.lot_repo.get_with_participants(lot_id, company_id)
         if tl is None:
             raise NotFoundError("TollingLot", lot_id)
         return await self._build_lot_out(tl)
 
     async def close_lot(
-        self, lot_id: uuid.UUID, data: TollingLotClose, ctx: AuditContext
+        self, lot_id: uuid.UUID, company_id: uuid.UUID, data: TollingLotClose, ctx: AuditContext
     ) -> TollingLotOut:
-        tl = await self.lot_repo.get_with_participants(lot_id)
+        tl = await self.lot_repo.get_with_participants(lot_id, company_id)
         if tl is None:
             raise NotFoundError("TollingLot", lot_id)
         if tl.status != TollingLotStatus.OPEN:
@@ -337,9 +337,9 @@ class TollingService:
     # ── Participants ──────────────────────────────────────────────────────────
 
     async def add_participant(
-        self, lot_id: uuid.UUID, data: ParticipantAdd, ctx: AuditContext
+        self, lot_id: uuid.UUID, company_id: uuid.UUID, data: ParticipantAdd, ctx: AuditContext
     ) -> ParticipantOut:
-        tl = await self.lot_repo.get_with_participants(lot_id)
+        tl = await self.lot_repo.get_with_participants(lot_id, company_id)
         if tl is None:
             raise NotFoundError("TollingLot", lot_id)
         if tl.status != TollingLotStatus.OPEN:
@@ -363,8 +363,16 @@ class TollingService:
         return await self._build_participant_out(p, cp_names)
 
     async def update_participant(
-        self, lot_id: uuid.UUID, participant_id: uuid.UUID, data: ParticipantUpdate, ctx: AuditContext
+        self,
+        lot_id: uuid.UUID,
+        company_id: uuid.UUID,
+        participant_id: uuid.UUID,
+        data: ParticipantUpdate,
+        ctx: AuditContext,
     ) -> ParticipantOut:
+        tl = await self.lot_repo.get_with_participants(lot_id, company_id)
+        if tl is None:
+            raise NotFoundError("TollingLot", lot_id)
         p = await self.part_repo.get_by_id(participant_id)
         if p is None or p.tolling_lot_id != lot_id:
             raise NotFoundError("TollingLotParticipant", participant_id)
@@ -382,7 +390,12 @@ class TollingService:
         cp_names = await self._cp_names([p.counterparty_id])
         return await self._build_participant_out(p, cp_names)
 
-    async def remove_participant(self, lot_id: uuid.UUID, participant_id: uuid.UUID) -> None:
+    async def remove_participant(
+        self, lot_id: uuid.UUID, company_id: uuid.UUID, participant_id: uuid.UUID
+    ) -> None:
+        tl = await self.lot_repo.get_with_participants(lot_id, company_id)
+        if tl is None:
+            raise NotFoundError("TollingLot", lot_id)
         p = await self.part_repo.get_by_id(participant_id)
         if p is None or p.tolling_lot_id != lot_id:
             raise NotFoundError("TollingLotParticipant", participant_id)
@@ -397,7 +410,7 @@ class TollingService:
     async def create_distribution(
         self, company_id: uuid.UUID, data: DistributionCreate, ctx: AuditContext
     ) -> DistributionOut:
-        tl = await self.lot_repo.get_with_participants(data.tolling_lot_id)
+        tl = await self.lot_repo.get_with_participants(data.tolling_lot_id, company_id)
         if tl is None:
             raise NotFoundError("TollingLot", data.tolling_lot_id)
         if tl.status != TollingLotStatus.OPEN:
@@ -426,11 +439,11 @@ class TollingService:
                  for ri in data.raw_intakes],
             )
 
-        dist = await self.dist_repo.get_full(dist.id)
+        dist = await self.dist_repo.get_full(dist.id, company_id)
         return await self._build_dist_out(dist)
 
-    async def get_distribution(self, dist_id: uuid.UUID) -> DistributionOut:
-        dist = await self.dist_repo.get_full(dist_id)
+    async def get_distribution(self, dist_id: uuid.UUID, company_id: uuid.UUID) -> DistributionOut:
+        dist = await self.dist_repo.get_full(dist_id, company_id)
         if dist is None:
             raise NotFoundError("TollingDistribution", dist_id)
         return await self._build_dist_out(dist)
@@ -453,9 +466,9 @@ class TollingService:
         return PaginatedResponse.build(outs, total, page, page_size)
 
     async def update_distribution(
-        self, dist_id: uuid.UUID, data: DistributionUpdate, ctx: AuditContext
+        self, dist_id: uuid.UUID, company_id: uuid.UUID, data: DistributionUpdate, ctx: AuditContext
     ) -> DistributionOut:
-        dist = await self.dist_repo.get_full(dist_id)
+        dist = await self.dist_repo.get_full(dist_id, company_id)
         if dist is None:
             raise NotFoundError("TollingDistribution", dist_id)
         if dist.status != TollingDistributionStatus.DRAFT:
@@ -473,11 +486,11 @@ class TollingService:
             )
 
         await self.dist_repo.save(dist)
-        dist = await self.dist_repo.get_full(dist.id)
+        dist = await self.dist_repo.get_full(dist.id, company_id)
         return await self._build_dist_out(dist)
 
-    async def preview_distribution(self, dist_id: uuid.UUID) -> DistributionOut:
-        dist = await self.dist_repo.get_full(dist_id)
+    async def preview_distribution(self, dist_id: uuid.UUID, company_id: uuid.UUID) -> DistributionOut:
+        dist = await self.dist_repo.get_full(dist_id, company_id)
         if dist is None:
             raise NotFoundError("TollingDistribution", dist_id)
 
@@ -538,8 +551,10 @@ class TollingService:
             total_kg_check=total_net + total_fee,
         )
 
-    async def confirm_distribution(self, dist_id: uuid.UUID, ctx: AuditContext) -> DistributionOut:
-        dist = await self.dist_repo.get_full(dist_id)
+    async def confirm_distribution(
+        self, dist_id: uuid.UUID, company_id: uuid.UUID, ctx: AuditContext
+    ) -> DistributionOut:
+        dist = await self.dist_repo.get_full(dist_id, company_id)
         if dist is None:
             raise NotFoundError("TollingDistribution", dist_id)
         if dist.status != TollingDistributionStatus.DRAFT:
@@ -559,7 +574,7 @@ class TollingService:
         tl = await self.lot_repo.get_by_id(dist.tolling_lot_id)
 
         # Post FG stock transactions per line
-        dist = await self.dist_repo.get_full(dist.id)
+        dist = await self.dist_repo.get_full(dist.id, company_id)
         for line in dist.lines:
             if line.line_type == TollingLineType.OWNER_NET and fg_wh:
                 tx = await self.stock_repo.post_transaction(
@@ -631,11 +646,13 @@ class TollingService:
             after_data={"status": "CONFIRMED"},
         )
 
-        dist = await self.dist_repo.get_full(dist.id)
+        dist = await self.dist_repo.get_full(dist.id, company_id)
         return await self._build_dist_out(dist, cp_names)
 
-    async def unconfirm_distribution(self, dist_id: uuid.UUID, ctx: AuditContext) -> DistributionOut:
-        dist = await self.dist_repo.get_full(dist_id)
+    async def unconfirm_distribution(
+        self, dist_id: uuid.UUID, company_id: uuid.UUID, ctx: AuditContext
+    ) -> DistributionOut:
+        dist = await self.dist_repo.get_full(dist_id, company_id)
         if dist is None:
             raise NotFoundError("TollingDistribution", dist_id)
         if dist.status != TollingDistributionStatus.CONFIRMED:
@@ -686,13 +703,13 @@ class TollingService:
             entity_id=dist.id, entity_display=str(dist.distribution_date),
             after_data={"status": "DRAFT"},
         )
-        dist = await self.dist_repo.get_full(dist.id)
+        dist = await self.dist_repo.get_full(dist.id, company_id)
         return await self._build_dist_out(dist)
 
     # ── Reports ───────────────────────────────────────────────────────────────
 
     async def lot_summary(self, company_id: uuid.UUID, lot_id: uuid.UUID) -> LotSummaryOut:
-        tl = await self.lot_repo.get_with_participants(lot_id)
+        tl = await self.lot_repo.get_with_participants(lot_id, company_id)
         if tl is None:
             raise NotFoundError("TollingLot", lot_id)
 
@@ -838,7 +855,7 @@ class TollingService:
         from app.modules.stock.models import StockTransaction
         from sqlalchemy import func
 
-        tl = await self.lot_repo.get_with_participants(lot_id)
+        tl = await self.lot_repo.get_with_participants(lot_id, company_id)
         if tl is None:
             raise NotFoundError("TollingLot", lot_id)
 

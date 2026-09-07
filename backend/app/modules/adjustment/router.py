@@ -56,7 +56,7 @@ async def get_adjustment(
 ) -> AdjustmentResponse:
     async with session.begin():
         svc = AdjustmentService(session)
-        return await svc.get(adjustment_id)
+        return await svc.get(adjustment_id, current_user.company_id)
 
 
 @router.put("/{adjustment_id}/lines", response_model=AdjustmentResponse)
@@ -69,7 +69,9 @@ async def update_lines(
 ) -> AdjustmentResponse:
     async with session.begin():
         svc = AdjustmentService(session)
-        return await svc.update_lines(adjustment_id, body, _ctx(request, current_user))
+        return await svc.update_lines(
+            adjustment_id, current_user.company_id, body, _ctx(request, current_user)
+        )
 
 
 @router.post("/{adjustment_id}/post", response_model=AdjustmentResponse)
@@ -81,4 +83,4 @@ async def post_adjustment(
 ) -> AdjustmentResponse:
     async with session.begin():
         svc = AdjustmentService(session)
-        return await svc.post(adjustment_id, _ctx(request, current_user))
+        return await svc.post(adjustment_id, current_user.company_id, _ctx(request, current_user))

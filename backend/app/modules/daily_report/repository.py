@@ -66,11 +66,13 @@ class DailyReportRepository(BaseRepository[DailyReport]):
         )
         return list(result.scalars().all()), total
 
-    async def get_with_lines(self, report_id: uuid.UUID) -> DailyReport | None:
+    async def get_with_lines(
+        self, report_id: uuid.UUID, company_id: uuid.UUID
+    ) -> DailyReport | None:
         result = await self.session.execute(
             select(DailyReport)
             .options(selectinload(DailyReport.lines))
-            .where(DailyReport.id == report_id)
+            .where(DailyReport.id == report_id, DailyReport.company_id == company_id)
         )
         return result.scalar_one_or_none()
 

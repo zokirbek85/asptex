@@ -29,6 +29,30 @@ class BaseRepository(Generic[ModelT]):
             raise NotFoundError(resource_name or self.model.__name__, id)
         return obj
 
+    async def get_scoped(self, id: uuid.UUID, company_id: uuid.UUID) -> ModelT | None:
+        """Like get_by_id, but also requires the row's company_id to match.
+
+        Used to close multi-tenant IDOR gaps: an id that exists but belongs
+        to a different company is treated as not found.
+        """
+        result = await self.session.execute(
+            select(self.model).where(
+                self.model.id == id,  # type: ignore[attr-defined]
+                self.model.company_id == company_id,  # type: ignore[attr-defined]
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_scoped_or_raise(
+        self, id: uuid.UUID, company_id: uuid.UUID, resource_name: str | None = None
+    ) -> ModelT:
+        from app.core.exceptions import NotFoundError
+
+        obj = await self.get_scoped(id, company_id)
+        if obj is None:
+            raise NotFoundError(resource_name or self.model.__name__, id)
+        return obj
+
     async def list_all(self) -> list[ModelT]:
         result = await self.session.execute(select(self.model))
         return list(result.scalars().all())
