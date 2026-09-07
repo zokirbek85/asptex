@@ -16,6 +16,7 @@ from app.modules.opening_balance.schemas import (
     OpeningBalanceResponse,
 )
 from app.modules.audit.service import AuditService
+from app.modules.stock.period_lock import assert_open_period
 from app.modules.stock.repository import StockRepository
 from app.shared.base_service import AuditContext
 from app.shared.enums import AdjustmentStatus, AuditAction, TransactionType
@@ -131,9 +132,9 @@ class OpeningBalanceService:
                 "owner_id": line.owner_id,
                 "waste_type": line.waste_type,
                 "pkg_item_type": line.pkg_item_type,
-                "quantity_kg": float(line.quantity_kg),
+                "quantity_kg": line.quantity_kg,
                 "quantity_bags": line.quantity_bags,
-                "quantity_kip": float(line.quantity_kip) if line.quantity_kip is not None else None,
+                "quantity_kip": line.quantity_kip,
                 "quantity_units": line.quantity_units,
                 "lot_number": None,
                 "count_value": None,
@@ -177,7 +178,7 @@ class OpeningBalanceService:
                 if d["owner_id"]:
                     d["owner_name"] = owners.get(d["owner_id"])
 
-        await self.repo.replace_lines(entry, lines_dicts)
+        entry = await self.repo.replace_lines(entry, lines_dicts)
         return self._build_response(entry)
 
     async def post(
@@ -193,6 +194,8 @@ class OpeningBalanceService:
             raise BusinessRuleViolationError("Boshlang'ich qoldiq allaqachon joylashtirilgan")
         if not entry.lines:
             raise BusinessRuleViolationError("Satr qo'shing")
+
+        await assert_open_period(self.session, entry.company_id, entry.warehouse_id, entry.balance_date)
 
         for line in entry.lines:
             tx = await self.stock_repo.post_transaction(
@@ -221,10 +224,14 @@ class OpeningBalanceService:
             )
             line.transaction_id = tx.id
 
+        lines_count = len(entry.lines)
         entry.status = AdjustmentStatus.POSTED
         entry.posted_at = datetime.now(timezone.utc)
         entry.posted_by = ctx.actor_id
         await self.repo.save(entry)
+        # save() expires (rather than reloads) relationship collections —
+        # re-fetch eagerly so `entry.lines` is safe for the response builder.
+        entry = await self.repo.get_with_lines(entry.id, company_id)
 
         await self.audit.log(
             ctx=ctx,
@@ -232,7 +239,7 @@ class OpeningBalanceService:
             action=AuditAction.POST,
             entity_id=entry.id,
             entity_display=str(entry.balance_date),
-            after_data={"status": "POSTED", "lines": len(entry.lines)},
+            after_data={"status": "POSTED", "lines": lines_count},
         )
         return self._build_response(entry)
 

@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -62,9 +63,9 @@ class OpeningBalanceLine(Base, UUIDPrimaryKeyMixin):
     waste_type: Mapped[WasteType | None] = mapped_column(nullable=True)
     pkg_item_type: Mapped[PackagingItemType | None] = mapped_column(nullable=True)
 
-    quantity_kg: Mapped[float] = mapped_column(Numeric(15, 3), nullable=False)
+    quantity_kg: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=False)
     quantity_bags: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    quantity_kip: Mapped[float | None] = mapped_column(Numeric(15, 3), nullable=True)
+    quantity_kip: Mapped[Decimal | None] = mapped_column(Numeric(15, 3), nullable=True)
     quantity_units: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Denormalized snapshots (filled on post)

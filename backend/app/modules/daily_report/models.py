@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -94,9 +95,9 @@ class DailyReportLine(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     pkg_item_type: Mapped[PackagingItemType | None] = mapped_column(nullable=True)
 
     # Quantities
-    quantity_kg: Mapped[float] = mapped_column(Numeric(15, 3), nullable=False, default=0)
+    quantity_kg: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=False, default=0)
     quantity_bags: Mapped[int | None] = mapped_column(nullable=True)
-    quantity_kip: Mapped[float | None] = mapped_column(Numeric(15, 3), nullable=True)
+    quantity_kip: Mapped[Decimal | None] = mapped_column(Numeric(15, 3), nullable=True)
     quantity_units: Mapped[int | None] = mapped_column(nullable=True)
 
     # Linked transaction (set after report SUBMIT)

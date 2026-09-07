@@ -4,7 +4,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 import uuid
 
-from sqlalchemy import case as sa_case, select
+from sqlalchemy import case as sa_case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessRuleViolationError, NotFoundError
@@ -41,6 +41,8 @@ from app.modules.tolling.schemas import (
     TollingLotCreate,
     TollingLotOut,
 )
+from app.modules.stock.concurrency import lock_balance_key
+from app.modules.stock.period_lock import assert_open_period
 from app.modules.stock.repository import StockRepository
 from app.modules.warehouse.models import Warehouse
 from app.shared.base_service import AuditContext
@@ -79,35 +81,58 @@ def _calculate_lines(
             "Lot ishtirokchilarida xom ashyo yetkazib berilgan (raw_kg_delivered) yo'q"
         )
 
-    lines = []
-    total_fee_kg = Decimal("0")
-
+    # Quantize each participant's gross to 3 decimals independently, then
+    # force the sum back to daily_fg_kg exactly (largest remainder method):
+    # any leftover from per-participant rounding is assigned to the
+    # participant with the largest ownership share.
+    shares = []
     for p in participants:
         share = Decimal(str(p.raw_kg_delivered)) / total_raw
         gross = _q3(daily_fg_kg * share)
+        shares.append({"p": p, "share": share, "gross": gross})
+
+    total_gross = sum(s["gross"] for s in shares)
+    remainder = _q3(daily_fg_kg - total_gross)
+    if remainder != Decimal("0"):
+        largest = max(shares, key=lambda s: s["share"])
+        largest["gross"] = largest["gross"] + remainder
+
+    lines = []
+    total_fee_kg = Decimal("0")
+    total_owner_net = Decimal("0")
+
+    for s in shares:
+        p = s["p"]
+        gross = s["gross"]
         fee = _q3(gross * Decimal(str(p.fee_pct)) / Decimal("100"))
         net = gross - fee
         total_fee_kg += fee
+        total_owner_net += net
         lines.append({
             "participant_id": p.id,
             "counterparty_id": p.counterparty_id,
             "line_type": TollingLineType.OWNER_NET,
-            "gross_kg": float(gross),
-            "fee_kg": float(fee),
-            "net_kg": float(net),
-            "ownership_share_pct": float(_q5(share * Decimal("100"))),
-            "fee_pct_applied": float(p.fee_pct),
+            "gross_kg": gross,
+            "fee_kg": fee,
+            "net_kg": net,
+            "ownership_share_pct": _q5(s["share"] * Decimal("100")),
+            "fee_pct_applied": Decimal(str(p.fee_pct)),
         })
+
+    assert total_owner_net + total_fee_kg == daily_fg_kg, (
+        f"Tolling taqsimoti yaxlitlash xatosi: owner_net({total_owner_net}) + "
+        f"fee({total_fee_kg}) != daily_fg_kg({daily_fg_kg})"
+    )
 
     lines.append({
         "participant_id": None,
         "counterparty_id": None,
         "line_type": TollingLineType.PROCESSOR_FEE,
-        "gross_kg": float(total_fee_kg),
-        "fee_kg": 0.0,
-        "net_kg": float(total_fee_kg),
-        "ownership_share_pct": 0.0,
-        "fee_pct_applied": 0.0,
+        "gross_kg": total_fee_kg,
+        "fee_kg": Decimal("0"),
+        "net_kg": total_fee_kg,
+        "ownership_share_pct": Decimal("0"),
+        "fee_pct_applied": Decimal("0"),
     })
 
     return lines
@@ -318,6 +343,9 @@ class TollingService:
         tl.closed_by = ctx.actor_id
         tl.close_reason = data.close_reason
         await self.lot_repo.save(tl)
+        # save() expires (rather than reloads) relationship collections —
+        # re-fetch eagerly so `.participants` is safe for _build_lot_out.
+        tl = await self.lot_repo.get_with_participants(tl.id, company_id)
 
         lot = await self.session.get(Lot, tl.lot_id)
         if lot:
@@ -353,10 +381,10 @@ class TollingService:
             tolling_lot_id=lot_id,
             counterparty_id=data.counterparty_id,
             contract_id=data.contract_id,
-            raw_kg_delivered=float(data.raw_kg_delivered),
-            fee_pct=float(data.fee_pct),
+            raw_kg_delivered=data.raw_kg_delivered,
+            fee_pct=data.fee_pct,
             fee_currency=data.fee_currency,
-            fee_rate_per_kg=float(data.fee_rate_per_kg) if data.fee_rate_per_kg is not None else None,
+            fee_rate_per_kg=data.fee_rate_per_kg,
             is_active=True,
         )
         cp_names = await self._cp_names([data.counterparty_id])
@@ -378,11 +406,11 @@ class TollingService:
             raise NotFoundError("TollingLotParticipant", participant_id)
 
         if data.fee_pct is not None:
-            p.fee_pct = float(data.fee_pct)
+            p.fee_pct = data.fee_pct
         if data.fee_rate_per_kg is not None:
-            p.fee_rate_per_kg = float(data.fee_rate_per_kg)
+            p.fee_rate_per_kg = data.fee_rate_per_kg
         if data.raw_kg_delivered is not None:
-            p.raw_kg_delivered = float(data.raw_kg_delivered)
+            p.raw_kg_delivered = data.raw_kg_delivered
         if data.is_active is not None:
             p.is_active = data.is_active
 
@@ -426,7 +454,7 @@ class TollingService:
             company_id=company_id,
             tolling_lot_id=data.tolling_lot_id,
             distribution_date=data.distribution_date,
-            daily_fg_kg_total=float(data.daily_fg_kg_total),
+            daily_fg_kg_total=data.daily_fg_kg_total,
             status=TollingDistributionStatus.DRAFT,
             notes=data.notes,
             created_by=ctx.actor_id,
@@ -435,7 +463,7 @@ class TollingService:
         if data.raw_intakes:
             await self.dist_repo.replace_raw_intakes(
                 dist,
-                [{"participant_id": ri.participant_id, "raw_kg_received_today": float(ri.raw_kg_received_today)}
+                [{"participant_id": ri.participant_id, "raw_kg_received_today": ri.raw_kg_received_today}
                  for ri in data.raw_intakes],
             )
 
@@ -475,13 +503,13 @@ class TollingService:
             raise BusinessRuleViolationError("Faqat DRAFT holatidagi taqsimotni tahrirlash mumkin")
 
         if data.daily_fg_kg_total is not None:
-            dist.daily_fg_kg_total = float(data.daily_fg_kg_total)
+            dist.daily_fg_kg_total = data.daily_fg_kg_total
         if data.notes is not None:
             dist.notes = data.notes
         if data.raw_intakes is not None:
             await self.dist_repo.replace_raw_intakes(
                 dist,
-                [{"participant_id": ri.participant_id, "raw_kg_received_today": float(ri.raw_kg_received_today)}
+                [{"participant_id": ri.participant_id, "raw_kg_received_today": ri.raw_kg_received_today}
                  for ri in data.raw_intakes],
             )
 
@@ -560,6 +588,19 @@ class TollingService:
         if dist.status != TollingDistributionStatus.DRAFT:
             raise BusinessRuleViolationError("Taqsimot allaqachon tasdiqlangan")
 
+        # Load warehouse IDs for this company
+        fg_wh = await self._get_warehouse(dist.company_id, WarehouseType.FINISHED_GOODS)
+        rc_wh = await self._get_warehouse(dist.company_id, WarehouseType.RAW_COTTON)
+
+        # Guard checks up front — fail fast before computing/posting anything.
+        if fg_wh:
+            await assert_open_period(self.session, dist.company_id, fg_wh.id, dist.distribution_date)
+            await self._assert_no_dr_production_inbound_conflict(
+                dist.company_id, fg_wh.id, dist.distribution_date
+            )
+        if rc_wh:
+            await assert_open_period(self.session, dist.company_id, rc_wh.id, dist.distribution_date)
+
         participants = await self.part_repo.get_active_for_lot(dist.tolling_lot_id)
         cp_ids = [p.counterparty_id for p in participants]
         cp_names = await self._cp_names(cp_ids)
@@ -567,16 +608,16 @@ class TollingService:
         lines_data = _calculate_lines(participants, Decimal(str(dist.daily_fg_kg_total)), cp_names)
         await self.dist_repo.replace_lines(dist, lines_data)
 
-        # Load warehouse IDs for this company
-        fg_wh = await self._get_warehouse(dist.company_id, WarehouseType.FINISHED_GOODS)
-        rc_wh = await self._get_warehouse(dist.company_id, WarehouseType.RAW_COTTON)
-
         tl = await self.lot_repo.get_by_id(dist.tolling_lot_id)
 
         # Post FG stock transactions per line
         dist = await self.dist_repo.get_full(dist.id, company_id)
         for line in dist.lines:
             if line.line_type == TollingLineType.OWNER_NET and fg_wh:
+                await lock_balance_key(
+                    self.session, dist.company_id, fg_wh.id,
+                    tl.lot_id if tl else None, None, line.counterparty_id,
+                )
                 tx = await self.stock_repo.post_transaction(
                     company_id=dist.company_id,
                     warehouse_id=fg_wh.id,
@@ -594,6 +635,10 @@ class TollingService:
                 line.stock_transaction_id = tx.id
 
             elif line.line_type == TollingLineType.PROCESSOR_FEE and fg_wh:
+                await lock_balance_key(
+                    self.session, dist.company_id, fg_wh.id,
+                    tl.lot_id if tl else None, None, None,
+                )
                 tx = await self.stock_repo.post_transaction(
                     company_id=dist.company_id,
                     warehouse_id=fg_wh.id,
@@ -630,9 +675,7 @@ class TollingService:
                         owner_id=p.counterparty_id,
                         owner_name=cp_name,
                     )
-                    p.raw_kg_delivered = float(
-                        Decimal(str(p.raw_kg_delivered)) + Decimal(str(ri.raw_kg_received_today))
-                    )
+                    p.raw_kg_delivered = p.raw_kg_delivered + ri.raw_kg_received_today
                     await self.session.flush()
 
         dist.status = TollingDistributionStatus.CONFIRMED
@@ -657,6 +700,13 @@ class TollingService:
             raise NotFoundError("TollingDistribution", dist_id)
         if dist.status != TollingDistributionStatus.CONFIRMED:
             raise BusinessRuleViolationError("Taqsimot tasdiqlanmagan")
+
+        fg_wh = await self._get_warehouse(dist.company_id, WarehouseType.FINISHED_GOODS)
+        rc_wh = await self._get_warehouse(dist.company_id, WarehouseType.RAW_COTTON)
+        if fg_wh:
+            await assert_open_period(self.session, dist.company_id, fg_wh.id, dist.distribution_date)
+        if rc_wh:
+            await assert_open_period(self.session, dist.company_id, rc_wh.id, dist.distribution_date)
 
         from app.modules.stock.models import StockTransaction
 
@@ -686,9 +736,8 @@ class TollingService:
             if Decimal(str(ri.raw_kg_received_today)) > Decimal("0"):
                 p = await self.part_repo.get_by_id(ri.participant_id)
                 if p:
-                    p.raw_kg_delivered = float(
-                        max(Decimal("0"),
-                            Decimal(str(p.raw_kg_delivered)) - Decimal(str(ri.raw_kg_received_today)))
+                    p.raw_kg_delivered = max(
+                        Decimal("0"), p.raw_kg_delivered - ri.raw_kg_received_today
                     )
                     await self.session.flush()
 
@@ -893,6 +942,39 @@ class TollingService:
             total_chiqimi_kg=total_chiqimi,
             total_qoldiq_kg=total_kirimi - total_chiqimi,
         )
+
+    async def _assert_no_dr_production_inbound_conflict(
+        self, company_id: uuid.UUID, fg_warehouse_id: uuid.UUID, distribution_date: date
+    ) -> None:
+        """
+        Mirror of DailyReportService._check_tolling_mismatch's blocking case:
+        if the daily report for this FG warehouse/date has already been
+        submitted with a PRODUCTION_INBOUND (non-waste) line, confirming this
+        distribution would double-count the same physical FG.
+        """
+        from app.modules.daily_report.models import DailyReport, DailyReportLine
+        from app.shared.enums import LineCategory, ReportStatus
+
+        result = await self.session.execute(
+            select(func.coalesce(func.sum(DailyReportLine.quantity_kg), 0))
+            .join(DailyReport, DailyReportLine.daily_report_id == DailyReport.id)
+            .where(
+                DailyReport.company_id == company_id,
+                DailyReport.warehouse_id == fg_warehouse_id,
+                DailyReport.report_date == distribution_date,
+                DailyReport.status.in_([ReportStatus.SUBMITTED, ReportStatus.CLOSED]),
+                DailyReportLine.line_category == LineCategory.PRODUCTION_INBOUND,
+                DailyReportLine.waste_type.is_(None),
+            )
+        )
+        production_inbound_total = Decimal(str(result.scalar_one() or 0))
+        if production_inbound_total > Decimal("0"):
+            raise BusinessRuleViolationError(
+                f"{distribution_date} uchun kunlik hisobotda allaqachon PRODUCTION_INBOUND "
+                f"({production_inbound_total} kg) kiritilgan — shu sababli tolling taqsimotini "
+                f"tasdiqlab bo'lmaydi. Tolling lot ochiq bo'lgan davrda FG faqat tolling "
+                f"taqsimoti orqali kiritiladi, aks holda qoldiq ikki marta hisoblanadi."
+            )
 
     # ── Warehouse helpers ─────────────────────────────────────────────────────
 

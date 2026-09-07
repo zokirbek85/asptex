@@ -67,5 +67,10 @@ class OpeningBalanceRepository(BaseRepository[OpeningBalanceEntry]):
             self.session.add(line)
 
         await self.session.flush()
-        await self.session.refresh(entry)
-        return entry
+        # selectinload will not re-populate a collection it considers already
+        # loaded (the now-stale, emptied-by-cascade `lines`), so force it to
+        # be treated as unloaded before re-fetching. A bare refresh()/attribute
+        # access would instead try an implicit lazy-load, which AsyncSession
+        # does not support and raises MissingGreenlet.
+        self.session.expire(entry, ["lines"])
+        return await self.get_with_lines(entry.id, entry.company_id)

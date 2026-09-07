@@ -66,6 +66,39 @@ def test_tolling_distribution_calculation():
     assert total_check == Decimal("13000.000")
 
 
+def test_tolling_calculate_lines_returns_decimal_not_float():
+    """T3: _calculate_lines must never round-trip amounts through float()."""
+    id_a = uuid.uuid4()
+    participants = [_FakeParticipant(id_a, 100_000, Decimal("20.00"))]
+    lines = _calculate_lines(participants, Decimal("13000"), {id_a: "A"})
+
+    numeric_fields = ["gross_kg", "fee_kg", "net_kg", "ownership_share_pct", "fee_pct_applied"]
+    for line in lines:
+        for field in numeric_fields:
+            assert isinstance(line[field], Decimal), (
+                f"{field} is {type(line[field])}, expected Decimal (no float round-trip)"
+            )
+
+
+def test_tolling_largest_remainder_forces_exact_total():
+    """T5b: 3 equal-share participants + an odd-cent total must still sum
+    to exactly daily_fg_kg_total after per-participant _q3 rounding."""
+    ids = [uuid.uuid4() for _ in range(3)]
+    participants = [_FakeParticipant(i, 100_000, Decimal("10.00")) for i in ids]
+    daily_fg = Decimal("10000.001")
+
+    lines = _calculate_lines(participants, daily_fg, {i: "X" for i in ids})
+
+    owner_lines = [l for l in lines if l["line_type"] == TollingLineType.OWNER_NET]
+    fee_line = next(l for l in lines if l["line_type"] == TollingLineType.PROCESSOR_FEE)
+
+    total_gross = sum(l["gross_kg"] for l in owner_lines)
+    assert total_gross == daily_fg
+
+    total_net_plus_fee = sum(l["net_kg"] for l in owner_lines) + fee_line["net_kg"]
+    assert total_net_plus_fee == daily_fg
+
+
 def test_tolling_zero_raw_raises():
     """When total raw is zero, calculation must raise BusinessRuleViolationError."""
     from app.core.exceptions import BusinessRuleViolationError

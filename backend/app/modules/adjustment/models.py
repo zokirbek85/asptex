@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -74,8 +75,8 @@ class InventoryAdjustmentLine(Base, UUIDPrimaryKeyMixin):
     waste_type: Mapped[WasteType | None] = mapped_column(nullable=True)
     pkg_item_type: Mapped[PackagingItemType | None] = mapped_column(nullable=True)
 
-    quantity_kg_before: Mapped[float] = mapped_column(Numeric(15, 3), nullable=False, default=0)
-    quantity_kg_after: Mapped[float] = mapped_column(Numeric(15, 3), nullable=False, default=0)
+    quantity_kg_before: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=False, default=0)
+    quantity_kg_after: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=False, default=0)
     bags_before: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     bags_after: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     units_before: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

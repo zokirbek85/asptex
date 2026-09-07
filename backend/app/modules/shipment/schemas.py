@@ -4,6 +4,7 @@ import uuid
 
 from pydantic import Field, field_validator
 
+from app.modules.stock.schemas import StockWarning
 from app.shared.enums import ShipmentStatus
 from app.shared.schemas import AppBaseModel
 
@@ -63,3 +64,4 @@ class ShipmentResponse(AppBaseModel):
     net_kg: Decimal
     notes: str | None
     created_at: datetime
+    warnings: list[StockWarning] | None = None

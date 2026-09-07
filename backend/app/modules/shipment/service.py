@@ -24,7 +24,10 @@ from app.modules.shipment.schemas import (
     ShipmentLineResponse,
     ShipmentResponse,
 )
+from app.modules.stock.concurrency import lock_balance_key
+from app.modules.stock.period_lock import assert_open_period
 from app.modules.stock.repository import StockRepository
+from app.modules.stock.schemas import StockWarning
 from app.modules.stock.service import StockService
 from app.shared.base_service import AuditContext
 from app.shared.enums import AuditAction, ShipmentStatus, TransactionType
@@ -65,12 +68,24 @@ class ShipmentService:
             raise NotFoundError("Counterparty", cp_id)
         return cp
 
-    async def _build_line_response(self, line: ShipmentLine) -> ShipmentLineResponse:
-        lot = await self._fetch_lot(line.lot_id)
-        count = await self._fetch_count(line.count_id)
-        owner = await self._fetch_counterparty(line.owner_id)
-        qty_kg = Decimal(str(line.quantity_kg))
-        cancelled_kg = Decimal(str(line.cancelled_kg))
+    def _build_line_response(
+        self,
+        line: ShipmentLine,
+        lots_by_id: dict[uuid.UUID, Lot],
+        counts_by_id: dict[uuid.UUID, CountCatalog],
+        owners_by_id: dict[uuid.UUID, Counterparty],
+    ) -> ShipmentLineResponse:
+        lot = lots_by_id.get(line.lot_id)
+        count = counts_by_id.get(line.count_id)
+        owner = owners_by_id.get(line.owner_id)
+        if lot is None:
+            raise NotFoundError("Lot", line.lot_id)
+        if count is None:
+            raise NotFoundError("CountCatalog", line.count_id)
+        if owner is None:
+            raise NotFoundError("Counterparty", line.owner_id)
+        qty_kg = line.quantity_kg
+        cancelled_kg = line.cancelled_kg
         return ShipmentLineResponse(
             id=line.id,
             line_number=line.line_number,
@@ -88,9 +103,42 @@ class ShipmentService:
             net_kg=qty_kg - cancelled_kg,
         )
 
-    async def build_response(self, shipment: Shipment) -> ShipmentResponse:
-        buyer = await self._fetch_counterparty(shipment.buyer_id)
-        line_responses = [await self._build_line_response(l) for l in (shipment.lines or [])]
+    async def build_response(
+        self, shipment: Shipment, warnings: list[StockWarning] | None = None
+    ) -> ShipmentResponse:
+        # Batch-fetch lots/counts/owners for every line in one query each,
+        # instead of three separate SELECTs per line (N+1).
+        lines = shipment.lines or []
+        lot_ids = {l.lot_id for l in lines}
+        count_ids = {l.count_id for l in lines}
+        owner_ids = {l.owner_id for l in lines} | {shipment.buyer_id}
+
+        lots_by_id: dict[uuid.UUID, Lot] = {}
+        if lot_ids:
+            result = await self.session.execute(select(Lot).where(Lot.id.in_(lot_ids)))
+            lots_by_id = {row.id: row for row in result.scalars().all()}
+
+        counts_by_id: dict[uuid.UUID, CountCatalog] = {}
+        if count_ids:
+            result = await self.session.execute(
+                select(CountCatalog).where(CountCatalog.id.in_(count_ids))
+            )
+            counts_by_id = {row.id: row for row in result.scalars().all()}
+
+        owners_by_id: dict[uuid.UUID, Counterparty] = {}
+        if owner_ids:
+            result = await self.session.execute(
+                select(Counterparty).where(Counterparty.id.in_(owner_ids))
+            )
+            owners_by_id = {row.id: row for row in result.scalars().all()}
+
+        buyer = owners_by_id.get(shipment.buyer_id)
+        if buyer is None:
+            raise NotFoundError("Counterparty", shipment.buyer_id)
+
+        line_responses = [
+            self._build_line_response(l, lots_by_id, counts_by_id, owners_by_id) for l in lines
+        ]
         total_kg = sum((lr.quantity_kg for lr in line_responses), Decimal("0"))
         net_kg = sum((lr.net_kg for lr in line_responses), Decimal("0"))
         return ShipmentResponse(
@@ -107,6 +155,7 @@ class ShipmentService:
             net_kg=net_kg,
             notes=shipment.notes,
             created_at=shipment.created_at,
+            warnings=warnings or None,
         )
 
     async def create(
@@ -114,7 +163,7 @@ class ShipmentService:
         company_id: uuid.UUID,
         data: ShipmentCreate,
         ctx: AuditContext,
-    ) -> Shipment:
+    ) -> tuple[Shipment, list[StockWarning]]:
         shipment_number = await generate_shipment_number(self.session, company_id)
 
         shipment = Shipment(
@@ -131,13 +180,18 @@ class ShipmentService:
         self.session.add(shipment)
         await self.session.flush()
 
+        warnings: list[StockWarning] = []
         for idx, line_data in enumerate(data.lines, start=1):
             lot = await self._fetch_lot(line_data.lot_id)
             count = await self._fetch_count(line_data.count_id)
             owner = await self._fetch_counterparty(line_data.owner_id)
 
             qty_kg = line_data.quantity_kg
-            _, would_go_neg = await self.stock_svc.check_balance_and_warn(
+            await lock_balance_key(
+                self.session, company_id, data.warehouse_id,
+                line_data.lot_id, line_data.count_id, line_data.owner_id,
+            )
+            current, would_go_neg = await self.stock_svc.check_balance_and_warn(
                 company_id=company_id,
                 warehouse_id=data.warehouse_id,
                 delta_kg=-qty_kg,
@@ -147,6 +201,15 @@ class ShipmentService:
                 lot_number=lot.lot_number,
                 owner_name=owner.name,
             )
+            if would_go_neg:
+                warnings.append(StockWarning(
+                    warehouse_id=data.warehouse_id,
+                    lot_number=lot.lot_number,
+                    count_value=count.count_value,
+                    owner_name=owner.name,
+                    current_kg=current,
+                    after_kg=current - qty_kg,
+                ))
 
             tx = await self.stock_repo.post_transaction(
                 company_id=company_id,
@@ -172,9 +235,9 @@ class ShipmentService:
                 lot_id=line_data.lot_id,
                 count_id=line_data.count_id,
                 owner_id=line_data.owner_id,
-                quantity_kg=float(qty_kg),
+                quantity_kg=qty_kg,
                 quantity_bags=line_data.quantity_bags,
-                cancelled_kg=0,
+                cancelled_kg=Decimal("0"),
                 cancelled_bags=0,
                 is_fully_cancelled=False,
                 transaction_id=tx.id,
@@ -184,7 +247,12 @@ class ShipmentService:
             self.session.add(line)
 
         await self.session.flush()
-        await self.session.refresh(shipment)
+        # A blind refresh() only reloads already-loaded attributes; `.lines`
+        # was never accessed on this brand-new object, so it would stay
+        # unloaded and a later access (response building) would attempt an
+        # implicit lazy-load, which AsyncSession does not support. Re-fetch
+        # with eager loading instead.
+        shipment = await self.repo.get_with_lines(shipment.id, company_id)
 
         await self.audit.log(
             ctx=ctx,
@@ -194,7 +262,7 @@ class ShipmentService:
             entity_display=shipment_number,
             after_data={"shipment_number": shipment_number, "lines": len(data.lines)},
         )
-        return shipment
+        return shipment, warnings
 
     async def cancel_line(
         self,
@@ -226,6 +294,10 @@ class ShipmentService:
         count = await self._fetch_count(line.count_id)
         owner = await self._fetch_counterparty(line.owner_id)
 
+        await assert_open_period(
+            self.session, shipment.company_id, shipment.warehouse_id, shipment.shipment_date
+        )
+
         reversal_tx = await self.stock_repo.post_transaction(
             company_id=shipment.company_id,
             warehouse_id=shipment.warehouse_id,
@@ -247,16 +319,16 @@ class ShipmentService:
             notes=data.reason,
         )
 
-        line.cancelled_kg = float(Decimal(str(line.cancelled_kg)) + data.quantity_kg)
+        line.cancelled_kg = line.cancelled_kg + data.quantity_kg
         if data.quantity_bags is not None:
             line.cancelled_bags = line.cancelled_bags + data.quantity_bags
-        new_remaining = Decimal(str(line.quantity_kg)) - Decimal(str(line.cancelled_kg))
+        new_remaining = line.quantity_kg - line.cancelled_kg
         line.is_fully_cancelled = new_remaining <= Decimal("0")
 
         cancellation = ShipmentCancellation(
             shipment_id=shipment.id,
             shipment_line_id=line.id,
-            quantity_kg=float(data.quantity_kg),
+            quantity_kg=data.quantity_kg,
             quantity_bags=data.quantity_bags,
             reason=data.reason,
             reversal_transaction_id=reversal_tx.id,
@@ -274,6 +346,9 @@ class ShipmentService:
             shipment.status = ShipmentStatus.PARTIALLY_CANCELLED
 
         await self.repo.save(shipment)
+        # save() expires (rather than reloads) relationship collections —
+        # re-fetch eagerly so `.lines` is safe for the response builder.
+        shipment = await self.repo.get_with_lines(shipment.id, company_id)
 
         await self.audit.log(
             ctx=ctx,

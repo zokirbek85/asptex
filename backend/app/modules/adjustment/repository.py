@@ -66,5 +66,10 @@ class AdjustmentRepository(BaseRepository[InventoryAdjustment]):
             self.session.add(line)
 
         await self.session.flush()
-        await self.session.refresh(adjustment)
-        return adjustment
+        # selectinload will not re-populate a collection it considers already
+        # loaded (the now-stale, emptied-by-cascade `lines`), so force it to
+        # be treated as unloaded before re-fetching. A bare refresh()/attribute
+        # access would instead try an implicit lazy-load, which AsyncSession
+        # does not support and raises MissingGreenlet.
+        self.session.expire(adjustment, ["lines"])
+        return await self.get_with_lines(adjustment.id, adjustment.company_id)

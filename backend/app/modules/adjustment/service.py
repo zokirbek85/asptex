@@ -16,6 +16,7 @@ from app.modules.adjustment.schemas import (
     AdjustmentResponse,
 )
 from app.modules.audit.service import AuditService
+from app.modules.stock.period_lock import assert_open_period
 from app.modules.stock.repository import StockRepository
 from app.shared.base_service import AuditContext
 from app.shared.enums import AdjustmentStatus, AuditAction, TransactionType
@@ -141,8 +142,8 @@ class AdjustmentService:
                 "owner_id": line.owner_id,
                 "waste_type": line.waste_type,
                 "pkg_item_type": line.pkg_item_type,
-                "quantity_kg_before": float(before),
-                "quantity_kg_after": float(line.quantity_kg_after),
+                "quantity_kg_before": before,
+                "quantity_kg_after": line.quantity_kg_after,
                 "bags_before": 0,
                 "bags_after": line.bags_after,
                 "units_before": 0,
@@ -151,7 +152,7 @@ class AdjustmentService:
                 "notes": line.notes,
             })
 
-        await self.repo.replace_lines(adj, lines_dicts)
+        adj = await self.repo.replace_lines(adj, lines_dicts)
         return self._build_response(adj)
 
     async def post(
@@ -166,10 +167,29 @@ class AdjustmentService:
         if adj.status != AdjustmentStatus.DRAFT:
             raise BusinessRuleViolationError("Adjustment is already posted")
 
+        await assert_open_period(self.session, adj.company_id, adj.warehouse_id, adj.adjustment_date)
+
         for line in adj.lines:
-            before = Decimal(str(line.quantity_kg_before))
-            after = Decimal(str(line.quantity_kg_after))
-            delta = after - before
+            # Target-based: re-read the *current* balance at post time rather
+            # than trusting quantity_kg_before captured back at update_lines()
+            # — other postings may have moved the balance in between, and the
+            # final result after posting must land exactly on quantity_kg_after.
+            current_balance = await self.stock_repo.get_balance(
+                company_id=adj.company_id,
+                warehouse_id=adj.warehouse_id,
+                lot_id=line.lot_id,
+                count_id=line.count_id,
+                owner_id=line.owner_id,
+                waste_type=line.waste_type,
+                pkg_item_type=line.pkg_item_type,
+            )
+            after = line.quantity_kg_after
+            if after < Decimal("0"):
+                raise BusinessRuleViolationError(
+                    f"Maqsadli qoldiq manfiy bo'lishi mumkin emas: {after} kg"
+                )
+            delta = after - current_balance
+            line.quantity_kg_before = current_balance
             if delta == Decimal("0"):
                 continue
 
@@ -202,10 +222,14 @@ class AdjustmentService:
             )
             line.transaction_id = tx.id
 
+        lines_count = len(adj.lines)
         adj.status = AdjustmentStatus.POSTED
         adj.posted_at = datetime.now(timezone.utc)
         adj.posted_by = ctx.actor_id
         await self.repo.save(adj)
+        # save() expires (rather than reloads) relationship collections —
+        # re-fetch eagerly so `adj.lines` is safe for the response builder.
+        adj = await self.repo.get_with_lines(adj.id, company_id)
 
         await self.audit.log(
             ctx=ctx,
@@ -213,6 +237,6 @@ class AdjustmentService:
             action=AuditAction.POST,
             entity_id=adj.id,
             entity_display=adj.adjustment_number,
-            after_data={"status": "POSTED", "lines": len(adj.lines)},
+            after_data={"status": "POSTED", "lines": lines_count},
         )
         return self._build_response(adj)

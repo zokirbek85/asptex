@@ -1,7 +1,19 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -11,6 +23,14 @@ from app.shared.enums import TollingDistributionStatus, TollingLineType, Tolling
 
 class TollingLot(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "tolling_lots"
+    __table_args__ = (
+        Index(
+            "uq_one_open_tolling_lot",
+            "company_id",
+            unique=True,
+            postgresql_where=text("status = 'OPEN'"),
+        ),
+    )
 
     company_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False, index=True
@@ -58,10 +78,10 @@ class TollingLotParticipant(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     contract_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("contracts.id"), nullable=True
     )
-    raw_kg_delivered: Mapped[float] = mapped_column(Numeric(15, 3), nullable=False, default=0)
-    fee_pct: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False)
+    raw_kg_delivered: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=False, default=0)
+    fee_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
     fee_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="UZS")
-    fee_rate_per_kg: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    fee_rate_per_kg: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     tolling_lot: Mapped["TollingLot"] = relationship("TollingLot", back_populates="participants", lazy="noload")
@@ -80,7 +100,7 @@ class TollingDistribution(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("tolling_lots.id"), nullable=False, index=True
     )
     distribution_date: Mapped[date] = mapped_column(Date, nullable=False)
-    daily_fg_kg_total: Mapped[float] = mapped_column(Numeric(15, 3), nullable=False)
+    daily_fg_kg_total: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=False)
     status: Mapped[TollingDistributionStatus] = mapped_column(
         nullable=False, default=TollingDistributionStatus.DRAFT
     )
@@ -116,7 +136,7 @@ class TollingDailyRawIntake(Base, UUIDPrimaryKeyMixin):
     participant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tolling_lot_participants.id"), nullable=False
     )
-    raw_kg_received_today: Mapped[float] = mapped_column(Numeric(15, 3), nullable=False, default=0)
+    raw_kg_received_today: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=False, default=0)
 
     distribution: Mapped["TollingDistribution"] = relationship(
         "TollingDistribution", back_populates="raw_intakes", lazy="noload"
@@ -142,14 +162,14 @@ class TollingDistributionLine(Base, UUIDPrimaryKeyMixin):
     counterparty_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("counterparties.id"), nullable=True
     )
-    gross_kg: Mapped[float] = mapped_column(Numeric(15, 3), nullable=False)
-    fee_kg: Mapped[float] = mapped_column(Numeric(15, 3), nullable=False, default=0)
-    net_kg: Mapped[float] = mapped_column(Numeric(15, 3), nullable=False)
-    ownership_share_pct: Mapped[float] = mapped_column(Numeric(8, 5), nullable=False)
-    fee_pct_applied: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=0)
-    fee_amount_uzs: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
-    fee_amount_usd: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
-    exchange_rate: Mapped[float | None] = mapped_column(Numeric(18, 4), nullable=True)
+    gross_kg: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=False)
+    fee_kg: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=False, default=0)
+    net_kg: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=False)
+    ownership_share_pct: Mapped[Decimal] = mapped_column(Numeric(8, 5), nullable=False)
+    fee_pct_applied: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0)
+    fee_amount_uzs: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    fee_amount_usd: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
+    exchange_rate: Mapped[Decimal | None] = mapped_column(Numeric(18, 4), nullable=True)
     stock_transaction_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
 
     distribution: Mapped["TollingDistribution"] = relationship(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -194,6 +195,44 @@ class TollingDistributionRepository(BaseRepository[TollingDistribution]):
         )
         row = result.one()
         return D(str(row.gross)), D(str(row.fee)), D(str(row.net))
+
+    async def sum_fg_for_participants_batch(
+        self, tolling_lot_ids: list[uuid.UUID]
+    ) -> dict[tuple[uuid.UUID, uuid.UUID], tuple[Decimal, Decimal, Decimal]]:
+        """
+        Batched form of sum_fg_for_participant — one query covering every
+        (tolling_lot_id, counterparty_id) pair across the given lots, instead
+        of one query per participant.
+        """
+        from sqlalchemy import func as sqlfunc
+        from app.shared.enums import TollingLineType
+
+        if not tolling_lot_ids:
+            return {}
+
+        result = await self.session.execute(
+            select(
+                TollingDistribution.tolling_lot_id,
+                TollingDistributionLine.counterparty_id,
+                sqlfunc.coalesce(sqlfunc.sum(TollingDistributionLine.gross_kg), 0).label("gross"),
+                sqlfunc.coalesce(sqlfunc.sum(TollingDistributionLine.fee_kg), 0).label("fee"),
+                sqlfunc.coalesce(sqlfunc.sum(TollingDistributionLine.net_kg), 0).label("net"),
+            )
+            .join(TollingDistribution, TollingDistributionLine.distribution_id == TollingDistribution.id)
+            .where(
+                TollingDistribution.tolling_lot_id.in_(tolling_lot_ids),
+                TollingDistribution.status == TollingDistributionStatus.CONFIRMED,
+                TollingDistributionLine.counterparty_id.isnot(None),
+                TollingDistributionLine.line_type == TollingLineType.OWNER_NET,
+            )
+            .group_by(TollingDistribution.tolling_lot_id, TollingDistributionLine.counterparty_id)
+        )
+        return {
+            (row.tolling_lot_id, row.counterparty_id): (
+                Decimal(str(row.gross)), Decimal(str(row.fee)), Decimal(str(row.net))
+            )
+            for row in result
+        }
 
     async def sum_fg_for_lot(self, tolling_lot_id: uuid.UUID) -> float:
         from sqlalchemy import func

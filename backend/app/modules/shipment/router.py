@@ -73,8 +73,10 @@ async def create_shipment(
 ) -> ShipmentResponse:
     async with session.begin():
         svc = ShipmentService(session)
-        shipment = await svc.create(current_user.company_id, body, _ctx(request, current_user))
-        return await svc.build_response(shipment)
+        shipment, warnings = await svc.create(
+            current_user.company_id, body, _ctx(request, current_user)
+        )
+        return await svc.build_response(shipment, warnings)
 
 
 @router.get("/{shipment_id}", response_model=ShipmentResponse)

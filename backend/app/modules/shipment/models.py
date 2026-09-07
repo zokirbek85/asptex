@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
@@ -84,11 +85,11 @@ class ShipmentLine(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("counterparties.id"), nullable=False
     )
 
-    quantity_kg: Mapped[float] = mapped_column(Numeric(15, 3), nullable=False)
+    quantity_kg: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=False)
     quantity_bags: Mapped[int | None] = mapped_column(nullable=True)
 
     # Cancellation tracking
-    cancelled_kg: Mapped[float] = mapped_column(Numeric(15, 3), nullable=False, default=0)
+    cancelled_kg: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=False, default=0)
     cancelled_bags: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_fully_cancelled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
@@ -117,7 +118,7 @@ class ShipmentCancellation(Base, UUIDPrimaryKeyMixin):
         UUID(as_uuid=True), ForeignKey("shipment_lines.id"), nullable=True
     )
 
-    quantity_kg: Mapped[float] = mapped_column(Numeric(15, 3), nullable=False)
+    quantity_kg: Mapped[Decimal] = mapped_column(Numeric(15, 3), nullable=False)
     quantity_bags: Mapped[int | None] = mapped_column(nullable=True)
 
     reason: Mapped[str] = mapped_column(Text, nullable=False)

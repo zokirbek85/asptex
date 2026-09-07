@@ -202,7 +202,7 @@ class StockRepository(BaseRepository[StockTransaction]):
             warehouse_id=warehouse_id,
             transaction_type=transaction_type,
             direction=direction,
-            quantity_kg=float(quantity_kg),
+            quantity_kg=quantity_kg,
             transaction_date=transaction_date,
             posted_by=posted_by,
             reference_type=reference_type,
@@ -214,7 +214,7 @@ class StockRepository(BaseRepository[StockTransaction]):
             waste_type=waste_type,
             pkg_item_type=pkg_item_type,
             quantity_bags=quantity_bags,
-            quantity_kip=float(quantity_kip) if quantity_kip is not None else None,
+            quantity_kip=quantity_kip,
             quantity_units=quantity_units,
             lot_number=lot_number,
             count_value=count_value,
@@ -265,6 +265,53 @@ class StockRepository(BaseRepository[StockTransaction]):
             )
         )
         return Decimal(str(result.scalar_one() or 0))
+
+    async def get_tolling_raw_actual_batch(
+        self,
+        company_id: uuid.UUID,
+        owner_ids: list[uuid.UUID],
+    ) -> dict[uuid.UUID, Decimal]:
+        """Batched form of get_tolling_raw_actual — one query for all owners."""
+        if not owner_ids:
+            return {}
+        result = await self.session.execute(
+            select(
+                StockTransaction.owner_id,
+                func.coalesce(func.sum(StockTransaction.quantity_kg), 0),
+            ).where(
+                StockTransaction.company_id == company_id,
+                StockTransaction.transaction_type == TransactionType.TOLLING_RAW_RECEIPT,
+                StockTransaction.owner_id.in_(owner_ids),
+                StockTransaction.direction == 1,
+            ).group_by(StockTransaction.owner_id)
+        )
+        return {row[0]: Decimal(str(row[1])) for row in result}
+
+    async def get_tolling_fg_shipped_batch(
+        self,
+        company_id: uuid.UUID,
+        warehouse_id: uuid.UUID,
+        lot_ids: list[uuid.UUID],
+        owner_ids: list[uuid.UUID],
+    ) -> dict[tuple[uuid.UUID, uuid.UUID], Decimal]:
+        """Batched form of get_tolling_fg_shipped — one query for all (lot, owner) pairs."""
+        if not lot_ids or not owner_ids:
+            return {}
+        result = await self.session.execute(
+            select(
+                StockTransaction.lot_id,
+                StockTransaction.owner_id,
+                func.coalesce(func.sum(StockTransaction.quantity_kg), 0),
+            ).where(
+                StockTransaction.company_id == company_id,
+                StockTransaction.warehouse_id == warehouse_id,
+                StockTransaction.lot_id.in_(lot_ids),
+                StockTransaction.owner_id.in_(owner_ids),
+                StockTransaction.transaction_type == TransactionType.SHIPMENT_OUTBOUND,
+                StockTransaction.direction == -1,
+            ).group_by(StockTransaction.lot_id, StockTransaction.owner_id)
+        )
+        return {(row[0], row[1]): Decimal(str(row[2])) for row in result}
 
     async def get_slow_stock_lots(
         self,

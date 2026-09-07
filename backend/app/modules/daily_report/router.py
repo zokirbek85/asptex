@@ -16,6 +16,7 @@ from app.modules.daily_report.schemas import (
     WarehouseRunningBalance,
 )
 from app.modules.daily_report.service import DailyReportService
+from app.modules.stock.schemas import StockWarning
 from app.shared.enums import ReportStatus
 from app.shared.schemas import PaginatedResponse
 
@@ -33,6 +34,7 @@ def _build(
     report,
     opening_balance: list[OpeningBalanceLine] | None = None,
     tolling_warnings: list[TollingWarning] | None = None,
+    stock_warnings: list[StockWarning] | None = None,
 ) -> DailyReportResponse:
     return DailyReportResponse(
         id=report.id,
@@ -69,6 +71,7 @@ def _build(
         notes=report.notes,
         created_at=report.created_at,
         tolling_warnings=tolling_warnings,
+        stock_warnings=stock_warnings,
     )
 
 
@@ -205,13 +208,13 @@ async def submit_report(
 ) -> DailyReportResponse:
     async with session.begin():
         svc = DailyReportService(session)
-        report, tolling_warnings = await svc.submit(
+        report, tolling_warnings, stock_warnings = await svc.submit(
             report_id, current_user.company_id, body, _ctx(request, current_user)
         )
         opening = await svc.get_opening_balance(
             current_user.company_id, report.warehouse_id, report.report_date
         )
-    return _build(report, opening, tolling_warnings)
+    return _build(report, opening, tolling_warnings, stock_warnings)
 
 
 @router.post("/{report_id}/close", response_model=DailyReportResponse)

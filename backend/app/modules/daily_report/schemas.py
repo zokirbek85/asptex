@@ -4,6 +4,7 @@ import uuid
 
 from pydantic import Field
 
+from app.modules.stock.schemas import StockWarning
 from app.shared.enums import LineCategory, PackagingItemType, ReportStatus, WasteType
 from app.shared.schemas import AppBaseModel
 
@@ -81,6 +82,7 @@ class DailyReportResponse(AppBaseModel):
     notes: str | None = None
     created_at: datetime
     tolling_warnings: list[TollingWarning] | None = None
+    stock_warnings: list[StockWarning] | None = None
 
 
 # ── Running Balance ──────────────────────────────────────────────────────────
