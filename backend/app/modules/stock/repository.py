@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.stock.models import StockTransaction
 from app.shared.base_repository import BaseRepository
-from app.shared.enums import PackagingItemType, TransactionType, WasteType
+from app.shared.enums import GinningProductType, PackagingItemType, TransactionType, WasteType
 
 
 class StockRepository(BaseRepository[StockTransaction]):
@@ -22,6 +22,7 @@ class StockRepository(BaseRepository[StockTransaction]):
         owner_id: uuid.UUID | None = None,
         waste_type: WasteType | None = None,
         pkg_item_type: PackagingItemType | None = None,
+        ginning_product_type: GinningProductType | None = None,
     ) -> Decimal:
         """Returns SUM(quantity_kg * direction). Always exact-matches all identity dims (None → IS NULL)."""
         conditions = [
@@ -53,6 +54,11 @@ class StockRepository(BaseRepository[StockTransaction]):
             conditions.append(StockTransaction.pkg_item_type == pkg_item_type)
         else:
             conditions.append(StockTransaction.pkg_item_type.is_(None))
+
+        if ginning_product_type is not None:
+            conditions.append(StockTransaction.ginning_product_type == ginning_product_type)
+        else:
+            conditions.append(StockTransaction.ginning_product_type.is_(None))
 
         result = await self.session.execute(
             select(
@@ -93,6 +99,7 @@ class StockRepository(BaseRepository[StockTransaction]):
                 StockTransaction.owner_name,
                 StockTransaction.waste_type,
                 StockTransaction.pkg_item_type,
+                StockTransaction.ginning_product_type,
                 balance_expr,
                 func.sum(StockTransaction.quantity_bags).label("total_bags"),
                 func.sum(StockTransaction.quantity_units).label("total_units"),
@@ -107,6 +114,7 @@ class StockRepository(BaseRepository[StockTransaction]):
                 StockTransaction.owner_name,
                 StockTransaction.waste_type,
                 StockTransaction.pkg_item_type,
+                StockTransaction.ginning_product_type,
             )
             .having(
                 func.sum(StockTransaction.quantity_kg * StockTransaction.direction) > 0
@@ -124,6 +132,7 @@ class StockRepository(BaseRepository[StockTransaction]):
                 "owner_name": r.owner_name,
                 "waste_type": r.waste_type,
                 "pkg_item_type": r.pkg_item_type,
+                "ginning_product_type": r.ginning_product_type,
                 "quantity_kg": Decimal(str(r.balance)),
                 "quantity_bags": int(r.total_bags) if r.total_bags else None,
                 "quantity_units": int(r.total_units) if r.total_units else None,
@@ -189,6 +198,7 @@ class StockRepository(BaseRepository[StockTransaction]):
         owner_id: uuid.UUID | None = None,
         waste_type: WasteType | None = None,
         pkg_item_type: PackagingItemType | None = None,
+        ginning_product_type: GinningProductType | None = None,
         quantity_bags: int | None = None,
         quantity_kip: Decimal | None = None,
         quantity_units: int | None = None,
@@ -213,6 +223,7 @@ class StockRepository(BaseRepository[StockTransaction]):
             owner_id=owner_id,
             waste_type=waste_type,
             pkg_item_type=pkg_item_type,
+            ginning_product_type=ginning_product_type,
             quantity_bags=quantity_bags,
             quantity_kip=quantity_kip,
             quantity_units=quantity_units,
@@ -335,6 +346,7 @@ class StockRepository(BaseRepository[StockTransaction]):
                 StockTransaction.lot_number,
                 StockTransaction.waste_type,
                 StockTransaction.pkg_item_type,
+                StockTransaction.ginning_product_type,
                 balance_expr,
                 last_movement,
             )
@@ -347,6 +359,7 @@ class StockRepository(BaseRepository[StockTransaction]):
                 StockTransaction.lot_number,
                 StockTransaction.waste_type,
                 StockTransaction.pkg_item_type,
+                StockTransaction.ginning_product_type,
             )
             .having(
                 func.sum(StockTransaction.quantity_kg * StockTransaction.direction) > 0,
@@ -361,6 +374,7 @@ class StockRepository(BaseRepository[StockTransaction]):
                 "lot_number": r.lot_number,
                 "waste_type": r.waste_type,
                 "pkg_item_type": r.pkg_item_type,
+                "ginning_product_type": r.ginning_product_type,
                 "quantity_kg": Decimal(str(r.balance)),
                 "last_movement_date": r.last_movement_date,
             }

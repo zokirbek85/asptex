@@ -14,6 +14,7 @@ export interface CompanyBrief {
   name: string;
   short_name: string | null;
   role: UserRole;
+  company_type: CompanyType;
 }
 
 export interface UserResponse {
@@ -77,12 +78,15 @@ export type LineCategory = "PRODUCTION_INBOUND" | "RECEIPT" | "PRODUCTION_ISSUE"
 
 // ── Company ───────────────────────────────────────────────────────────────────
 
+export type CompanyType = "YARN_SPINNING" | "GINNING";
+
 export interface Company {
   id: string;
   name: string;
   short_name: string | null;
   tax_id: string | null;
   address: string | null;
+  company_type: CompanyType;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -93,6 +97,7 @@ export interface CompanyCreate {
   short_name?: string | null;
   tax_id?: string | null;
   address?: string | null;
+  company_type: CompanyType;
 }
 
 export interface CompanyUpdate {
@@ -100,6 +105,7 @@ export interface CompanyUpdate {
   short_name?: string | null;
   tax_id?: string | null;
   address?: string | null;
+  company_type?: CompanyType;
 }
 
 // ── User ──────────────────────────────────────────────────────────────────────

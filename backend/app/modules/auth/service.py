@@ -43,6 +43,7 @@ def _build_company_list(user: User) -> list[CompanyBrief]:
             name=role.company.name,
             short_name=role.company.short_name,
             role=role.role,
+            company_type=role.company.company_type,
         )
         for role in user.company_roles
         if role.is_active and role.company.is_active

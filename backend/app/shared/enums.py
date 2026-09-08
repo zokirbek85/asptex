@@ -1,6 +1,11 @@
 from enum import Enum
 
 
+class CompanyType(str, Enum):
+    YARN_SPINNING = "YARN_SPINNING"
+    GINNING = "GINNING"
+
+
 class UserRole(str, Enum):
     ADMIN = "ADMIN"
     DIRECTOR = "DIRECTOR"
@@ -22,6 +27,7 @@ class CounterpartyType(str, Enum):
     BUYER = "BUYER"
     TOLLING_OWNER = "TOLLING_OWNER"
     BOTH = "BOTH"
+    FARMER = "FARMER"
 
 
 class LotStatus(str, Enum):
@@ -129,6 +135,87 @@ class ReferenceType(str, Enum):
     SHIPMENT = "SHIPMENT"
     ADJUSTMENT = "ADJUSTMENT"
     OPENING_BALANCE = "OPENING_BALANCE"
+    COTTON_RECEIVING = "COTTON_RECEIVING"
+    GINNING_PRODUCTION = "GINNING_PRODUCTION"
+    INTERCOMPANY_TRANSFER = "INTERCOMPANY_TRANSFER"
+    EXCHANGE_SALE = "EXCHANGE_SALE"
+    FARMER_PAYMENT = "FARMER_PAYMENT"
+
+
+class GinningProductType(str, Enum):
+    FIBER = "FIBER"
+    SEED = "SEED"
+    LINT = "LINT"
+    PUX = "PUX"
+    ULYUK = "ULYUK"
+    OTHER = "OTHER"
+
+
+class BuntStatus(str, Enum):
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+
+
+class CottonReceivingStatus(str, Enum):
+    DRAFT = "DRAFT"
+    POSTED = "POSTED"
+    CANCELLED = "CANCELLED"
+
+
+class GinningProductionStatus(str, Enum):
+    DRAFT = "DRAFT"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
+
+class GinningBaleStatus(str, Enum):
+    IN_STOCK = "IN_STOCK"
+    SOLD = "SOLD"
+    TRANSFERRED = "TRANSFERRED"
+
+
+class IntercompanyTransferStatus(str, Enum):
+    DRAFT = "DRAFT"
+    CONFIRMED = "CONFIRMED"
+    CANCELLED = "CANCELLED"
+
+
+class ExchangeSaleStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    PARTIALLY_CANCELLED = "PARTIALLY_CANCELLED"
+    CANCELLED = "CANCELLED"
+
+
+class FarmerLedgerEntryType(str, Enum):
+    RECEIVABLE_COTTON = "RECEIVABLE_COTTON"
+    ADVANCE_PAYMENT = "ADVANCE_PAYMENT"
+    PAYMENT = "PAYMENT"
+    DEDUCTION = "DEDUCTION"
+    ADJUSTMENT = "ADJUSTMENT"
+
+
+class FarmerPaymentStatus(str, Enum):
+    DRAFT = "DRAFT"
+    POSTED = "POSTED"
+    CANCELLED = "CANCELLED"
+
+
+class GinningCostType(str, Enum):
+    RAW_MATERIAL = "RAW_MATERIAL"
+    ELECTRICITY = "ELECTRICITY"
+    GAS = "GAS"
+    LABOR = "LABOR"
+    DEPRECIATION = "DEPRECIATION"
+    MAINTENANCE = "MAINTENANCE"
+    PACKAGING = "PACKAGING"
+    OVERHEAD = "OVERHEAD"
+    OTHER = "OTHER"
+
+
+class CostAllocationMethod(str, Enum):
+    SALES_VALUE = "SALES_VALUE"
+    QUANTITY = "QUANTITY"
+    MANUAL_PERCENTAGE = "MANUAL_PERCENTAGE"
 
 
 # Roles that have read-only dashboard access (no warehouse operations)

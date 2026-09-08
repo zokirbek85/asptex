@@ -18,7 +18,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.base_model import Base, UUIDPrimaryKeyMixin
-from app.shared.enums import PackagingItemType, TransactionType, WasteType
+from app.shared.enums import GinningProductType, PackagingItemType, TransactionType, WasteType
 
 
 class StockTransaction(Base, UUIDPrimaryKeyMixin):
@@ -33,6 +33,7 @@ class StockTransaction(Base, UUIDPrimaryKeyMixin):
         Index("idx_st_balance_key", "company_id", "warehouse_id", "lot_id", "count_id", "owner_id"),
         Index("idx_st_waste_balance", "company_id", "warehouse_id", "waste_type"),
         Index("idx_st_pkg_balance", "company_id", "warehouse_id", "pkg_item_type"),
+        Index("idx_st_ginning_balance", "company_id", "warehouse_id", "ginning_product_type"),
         Index("idx_st_transaction_date", "company_id", "warehouse_id", "transaction_date"),
         Index("idx_st_reference", "reference_type", "reference_id"),
     )
@@ -57,6 +58,7 @@ class StockTransaction(Base, UUIDPrimaryKeyMixin):
     )
     waste_type: Mapped[WasteType | None] = mapped_column(nullable=True)
     pkg_item_type: Mapped[PackagingItemType | None] = mapped_column(nullable=True)
+    ginning_product_type: Mapped[GinningProductType | None] = mapped_column(nullable=True)
 
     # Transaction metadata
     transaction_type: Mapped[TransactionType] = mapped_column(nullable=False)

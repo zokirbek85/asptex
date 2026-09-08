@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Eye } from "lucide-react";
@@ -11,11 +11,16 @@ import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { shipmentApi, type ShipmentCreate, type ShipmentResponse } from "@/lib/api/shipment";
+import { warehouseApi } from "@/lib/api/warehouse";
+import { counterpartyApi } from "@/lib/api/counterparty";
+import { contractApi } from "@/lib/api/contract";
+import { stockApi } from "@/lib/api/stock";
 import { useAuthStore } from "@/lib/stores/auth";
 import { DataTable } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select, type SelectOption } from "@/components/ui/Select";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { formatDate } from "@/lib/utils";
 import type { ShipmentStatus } from "@/lib/types";
@@ -65,6 +70,59 @@ export default function ShipmentsPage() {
     defaultValues: { lines: [{ lot_id: "", count_id: "", owner_id: "", quantity_kg: 0 }] },
   });
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "lines" });
+
+  const warehouseId = form.watch("warehouse_id");
+  const buyerId = form.watch("buyer_id");
+
+  const { data: warehousesPage } = useQuery({
+    queryKey: ["warehouses-fg"],
+    queryFn: () => warehouseApi.list({ active_only: true, warehouse_type: "FINISHED_GOODS", page_size: 200 }),
+    enabled: showCreate,
+  });
+  const { data: buyersPage } = useQuery({
+    queryKey: ["counterparties-all"],
+    queryFn: () => counterpartyApi.list({ active_only: true, page_size: 200 }),
+    enabled: showCreate,
+  });
+  const { data: contractsPage } = useQuery({
+    queryKey: ["contracts-for-buyer", buyerId],
+    queryFn: () => contractApi.list({ active_only: true, counterparty_id: buyerId, page_size: 200 }),
+    enabled: showCreate && !!buyerId,
+  });
+  const { data: stockItems } = useQuery({
+    queryKey: ["fg-stock-for-shipment", warehouseId],
+    queryFn: () => stockApi.finishedGoods({ warehouse_id: warehouseId }),
+    enabled: showCreate && !!warehouseId,
+  });
+
+  const warehouseOptions: SelectOption[] = (warehousesPage?.items ?? []).map((w) => ({ value: w.id, label: `${w.name} (${w.code})` }));
+  const buyerOptions: SelectOption[] = (buyersPage?.items ?? []).map((c) => ({ value: c.id, label: c.name }));
+  const contractOptions: SelectOption[] = [
+    { value: "", label: t("Tanlanmagan", "Не выбран") },
+    ...(contractsPage?.items ?? []).map((c) => ({ value: c.id, label: c.contract_number })),
+  ];
+
+  const lotOptions: SelectOption[] = useMemo(() => {
+    const map = new Map<string, string>();
+    (stockItems ?? []).forEach((i) => map.set(i.lot_id, i.lot_number));
+    return Array.from(map, ([value, label]) => ({ value, label }));
+  }, [stockItems]);
+
+  const countOptionsForLot = (lotId: string): SelectOption[] => {
+    const map = new Map<string, string>();
+    (stockItems ?? []).forEach((i) => {
+      if (i.lot_id === lotId && i.count_id && i.count_value) map.set(i.count_id, i.count_value);
+    });
+    return Array.from(map, ([value, label]) => ({ value, label }));
+  };
+
+  const ownerOptionsForLotCount = (lotId: string, countId: string): SelectOption[] => {
+    const map = new Map<string, string>();
+    (stockItems ?? []).forEach((i) => {
+      if (i.lot_id === lotId && i.count_id === countId && i.owner_id && i.owner_name) map.set(i.owner_id, i.owner_name);
+    });
+    return Array.from(map, ([value, label]) => ({ value, label }));
+  };
 
   const createMut = useMutation({
     mutationFn: (body: ShipmentCreate) => shipmentApi.create(body),
@@ -155,27 +213,146 @@ export default function ShipmentsPage() {
           className="flex flex-col gap-4"
         >
           <div className="grid grid-cols-2 gap-3">
-            <Input label={t("Ombor ID", "ID склада")} {...form.register("warehouse_id")} error={form.formState.errors.warehouse_id?.message} />
+            <Controller
+              control={form.control}
+              name="warehouse_id"
+              render={({ field }) => (
+                <Select
+                  label={t("Ombor", "Склад")}
+                  value={field.value}
+                  onValueChange={(v) => {
+                    field.onChange(v);
+                    const lines = form.getValues("lines");
+                    lines.forEach((_, idx) => {
+                      form.setValue(`lines.${idx}.lot_id`, "");
+                      form.setValue(`lines.${idx}.count_id`, "");
+                      form.setValue(`lines.${idx}.owner_id`, "");
+                    });
+                  }}
+                  options={warehouseOptions}
+                  placeholder={t("Tanlang", "Выберите")}
+                  error={form.formState.errors.warehouse_id?.message}
+                />
+              )}
+            />
             <Input label={t("Sana", "Дата")} type="date" {...form.register("shipment_date")} error={form.formState.errors.shipment_date?.message} />
-            <Input label={t("Xaridor ID", "ID покупателя")} {...form.register("buyer_id")} error={form.formState.errors.buyer_id?.message} />
-            <Input label={t("Shartnoma ID (ixtiyoriy)", "ID договора (необяз.)")} {...form.register("contract_id")} />
+            <Controller
+              control={form.control}
+              name="buyer_id"
+              render={({ field }) => (
+                <Select
+                  label={t("Xaridor", "Покупатель")}
+                  value={field.value}
+                  onValueChange={(v) => {
+                    field.onChange(v);
+                    form.setValue("contract_id", "");
+                  }}
+                  options={buyerOptions}
+                  placeholder={t("Tanlang", "Выберите")}
+                  error={form.formState.errors.buyer_id?.message}
+                />
+              )}
+            />
+            <Controller
+              control={form.control}
+              name="contract_id"
+              render={({ field }) => (
+                <Select
+                  label={t("Shartnoma (ixtiyoriy)", "Договор (необяз.)")}
+                  value={field.value ?? ""}
+                  onValueChange={field.onChange}
+                  options={contractOptions}
+                  placeholder={t("Tanlang", "Выберите")}
+                  disabled={!buyerId}
+                />
+              )}
+            />
           </div>
 
           <div>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-semibold">{t("Qatorlar", "Строки")}</span>
-              <Button type="button" size="sm" variant="outline" onClick={() => append({ lot_id: "", count_id: "", owner_id: "", quantity_kg: 0 } as any)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={!warehouseId}
+                onClick={() => append({ lot_id: "", count_id: "", owner_id: "", quantity_kg: 0 } as any)}
+              >
                 <Plus size={12} /> {t("Qo'shish", "Добавить")}
               </Button>
             </div>
-            {fields.map((field, idx) => (
-              <div key={field.id} className="mb-2 grid grid-cols-4 gap-2 rounded-lg border border-slate-200 p-2">
-                <Input label="Lot ID" {...form.register(`lines.${idx}.lot_id`)} error={form.formState.errors.lines?.[idx]?.lot_id?.message} />
-                <Input label="Count ID" {...form.register(`lines.${idx}.count_id`)} error={form.formState.errors.lines?.[idx]?.count_id?.message} />
-                <Input label="Owner ID" {...form.register(`lines.${idx}.owner_id`)} error={form.formState.errors.lines?.[idx]?.owner_id?.message} />
-                <Input label="Qty (kg)" type="number" step="0.001" {...form.register(`lines.${idx}.quantity_kg`, { valueAsNumber: true })} error={form.formState.errors.lines?.[idx]?.quantity_kg?.message} />
-              </div>
-            ))}
+            {!warehouseId && (
+              <p className="mb-2 text-xs text-foreground-muted">{t("Avval omborni tanlang", "Сначала выберите склад")}</p>
+            )}
+            {fields.map((field, idx) => {
+              const lotId = form.watch(`lines.${idx}.lot_id`);
+              const countId = form.watch(`lines.${idx}.count_id`);
+              return (
+                <div key={field.id} className="mb-2 grid grid-cols-4 gap-2 rounded-lg border border-slate-200 p-2">
+                  <Controller
+                    control={form.control}
+                    name={`lines.${idx}.lot_id`}
+                    render={({ field: f }) => (
+                      <Select
+                        label="Lot"
+                        value={f.value}
+                        onValueChange={(v) => {
+                          f.onChange(v);
+                          form.setValue(`lines.${idx}.count_id`, "");
+                          form.setValue(`lines.${idx}.owner_id`, "");
+                        }}
+                        options={lotOptions}
+                        placeholder={t("Tanlang", "Выберите")}
+                        disabled={!warehouseId}
+                        error={form.formState.errors.lines?.[idx]?.lot_id?.message}
+                      />
+                    )}
+                  />
+                  <Controller
+                    control={form.control}
+                    name={`lines.${idx}.count_id`}
+                    render={({ field: f }) => (
+                      <Select
+                        label="Count"
+                        value={f.value}
+                        onValueChange={(v) => {
+                          f.onChange(v);
+                          form.setValue(`lines.${idx}.owner_id`, "");
+                        }}
+                        options={countOptionsForLot(lotId)}
+                        placeholder={t("Tanlang", "Выберите")}
+                        disabled={!lotId}
+                        error={form.formState.errors.lines?.[idx]?.count_id?.message}
+                      />
+                    )}
+                  />
+                  <Controller
+                    control={form.control}
+                    name={`lines.${idx}.owner_id`}
+                    render={({ field: f }) => (
+                      <Select
+                        label={t("Egasi", "Владелец")}
+                        value={f.value}
+                        onValueChange={f.onChange}
+                        options={ownerOptionsForLotCount(lotId, countId)}
+                        placeholder={t("Tanlang", "Выберите")}
+                        disabled={!countId}
+                        error={form.formState.errors.lines?.[idx]?.owner_id?.message}
+                      />
+                    )}
+                  />
+                  <div className="flex items-end gap-1">
+                    <Input label="Qty (kg)" type="number" step="0.001" {...form.register(`lines.${idx}.quantity_kg`, { valueAsNumber: true })} error={form.formState.errors.lines?.[idx]?.quantity_kg?.message} />
+                    {fields.length > 1 && (
+                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(idx)}>
+                        &times;
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
             {form.formState.errors.lines?.root && (
               <p className="text-xs text-red-500">{form.formState.errors.lines.root.message}</p>
             )}

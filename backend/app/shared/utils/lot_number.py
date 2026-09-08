@@ -125,3 +125,225 @@ async def generate_adjustment_number(session: AsyncSession, company_id: uuid.UUI
 
     seq.last_sequence += 1
     return f"ADJ-{year}-{seq.last_sequence:04d}"
+
+
+async def generate_cotton_receiving_number(session: AsyncSession, company_id: uuid.UUID) -> str:
+    """
+    Atomically generates the next cotton receiving number.
+    Format: GIN-REC-YYYY-NNNN
+    """
+    from app.modules.cotton_receiving.models import CottonReceivingNumberSequence
+
+    year = date.today().year
+
+    result = await session.execute(
+        select(CottonReceivingNumberSequence)
+        .where(
+            CottonReceivingNumberSequence.company_id == company_id,
+            CottonReceivingNumberSequence.year == year,
+        )
+        .with_for_update()
+    )
+    seq = result.scalar_one_or_none()
+
+    if seq is None:
+        seq = CottonReceivingNumberSequence(company_id=company_id, year=year, last_sequence=0)
+        session.add(seq)
+        await session.flush()
+        result = await session.execute(
+            select(CottonReceivingNumberSequence)
+            .where(
+                CottonReceivingNumberSequence.company_id == company_id,
+                CottonReceivingNumberSequence.year == year,
+            )
+            .with_for_update()
+        )
+        seq = result.scalar_one()
+
+    seq.last_sequence += 1
+    return f"GIN-REC-{year}-{seq.last_sequence:04d}"
+
+
+async def generate_ginning_production_number(session: AsyncSession, company_id: uuid.UUID) -> str:
+    """
+    Atomically generates the next ginning production order number.
+    Format: GIN-PROD-YYYY-NNNN
+    """
+    from app.modules.ginning_production.models import GinningProductionNumberSequence
+
+    year = date.today().year
+
+    result = await session.execute(
+        select(GinningProductionNumberSequence)
+        .where(
+            GinningProductionNumberSequence.company_id == company_id,
+            GinningProductionNumberSequence.year == year,
+        )
+        .with_for_update()
+    )
+    seq = result.scalar_one_or_none()
+
+    if seq is None:
+        seq = GinningProductionNumberSequence(company_id=company_id, year=year, last_sequence=0)
+        session.add(seq)
+        await session.flush()
+        result = await session.execute(
+            select(GinningProductionNumberSequence)
+            .where(
+                GinningProductionNumberSequence.company_id == company_id,
+                GinningProductionNumberSequence.year == year,
+            )
+            .with_for_update()
+        )
+        seq = result.scalar_one()
+
+    seq.last_sequence += 1
+    return f"GIN-PROD-{year}-{seq.last_sequence:04d}"
+
+
+async def generate_ginning_bale_number(session: AsyncSession, company_id: uuid.UUID) -> str:
+    """
+    Atomically generates the next ginning bale number.
+    Format: GIN-BAL-YYYY-NNNNNN
+    """
+    from app.modules.ginning_bale.models import GinningBaleNumberSequence
+
+    year = date.today().year
+
+    result = await session.execute(
+        select(GinningBaleNumberSequence)
+        .where(
+            GinningBaleNumberSequence.company_id == company_id,
+            GinningBaleNumberSequence.year == year,
+        )
+        .with_for_update()
+    )
+    seq = result.scalar_one_or_none()
+
+    if seq is None:
+        seq = GinningBaleNumberSequence(company_id=company_id, year=year, last_sequence=0)
+        session.add(seq)
+        await session.flush()
+        result = await session.execute(
+            select(GinningBaleNumberSequence)
+            .where(
+                GinningBaleNumberSequence.company_id == company_id,
+                GinningBaleNumberSequence.year == year,
+            )
+            .with_for_update()
+        )
+        seq = result.scalar_one()
+
+    seq.last_sequence += 1
+    return f"GIN-BAL-{year}-{seq.last_sequence:06d}"
+
+
+async def generate_intercompany_transfer_number(session: AsyncSession, company_id: uuid.UUID) -> str:
+    """
+    Atomically generates the next intercompany transfer number (numbered on the source company).
+    Format: GIN-TRF-YYYY-NNNN
+    """
+    from app.modules.intercompany_transfer.models import IntercompanyTransferNumberSequence
+
+    year = date.today().year
+
+    result = await session.execute(
+        select(IntercompanyTransferNumberSequence)
+        .where(
+            IntercompanyTransferNumberSequence.company_id == company_id,
+            IntercompanyTransferNumberSequence.year == year,
+        )
+        .with_for_update()
+    )
+    seq = result.scalar_one_or_none()
+
+    if seq is None:
+        seq = IntercompanyTransferNumberSequence(company_id=company_id, year=year, last_sequence=0)
+        session.add(seq)
+        await session.flush()
+        result = await session.execute(
+            select(IntercompanyTransferNumberSequence)
+            .where(
+                IntercompanyTransferNumberSequence.company_id == company_id,
+                IntercompanyTransferNumberSequence.year == year,
+            )
+            .with_for_update()
+        )
+        seq = result.scalar_one()
+
+    seq.last_sequence += 1
+    return f"GIN-TRF-{year}-{seq.last_sequence:04d}"
+
+
+async def generate_exchange_sale_number(session: AsyncSession, company_id: uuid.UUID) -> str:
+    """
+    Atomically generates the next exchange sale number.
+    Format: GIN-SALE-YYYY-NNNN
+    """
+    from app.modules.exchange_sale.models import ExchangeSaleNumberSequence
+
+    year = date.today().year
+
+    result = await session.execute(
+        select(ExchangeSaleNumberSequence)
+        .where(
+            ExchangeSaleNumberSequence.company_id == company_id,
+            ExchangeSaleNumberSequence.year == year,
+        )
+        .with_for_update()
+    )
+    seq = result.scalar_one_or_none()
+
+    if seq is None:
+        seq = ExchangeSaleNumberSequence(company_id=company_id, year=year, last_sequence=0)
+        session.add(seq)
+        await session.flush()
+        result = await session.execute(
+            select(ExchangeSaleNumberSequence)
+            .where(
+                ExchangeSaleNumberSequence.company_id == company_id,
+                ExchangeSaleNumberSequence.year == year,
+            )
+            .with_for_update()
+        )
+        seq = result.scalar_one()
+
+    seq.last_sequence += 1
+    return f"GIN-SALE-{year}-{seq.last_sequence:04d}"
+
+
+async def generate_farmer_payment_number(session: AsyncSession, company_id: uuid.UUID) -> str:
+    """
+    Atomically generates the next farmer payment number.
+    Format: GIN-PAY-YYYY-NNNN
+    """
+    from app.modules.farmer_settlement.models import FarmerPaymentNumberSequence
+
+    year = date.today().year
+
+    result = await session.execute(
+        select(FarmerPaymentNumberSequence)
+        .where(
+            FarmerPaymentNumberSequence.company_id == company_id,
+            FarmerPaymentNumberSequence.year == year,
+        )
+        .with_for_update()
+    )
+    seq = result.scalar_one_or_none()
+
+    if seq is None:
+        seq = FarmerPaymentNumberSequence(company_id=company_id, year=year, last_sequence=0)
+        session.add(seq)
+        await session.flush()
+        result = await session.execute(
+            select(FarmerPaymentNumberSequence)
+            .where(
+                FarmerPaymentNumberSequence.company_id == company_id,
+                FarmerPaymentNumberSequence.year == year,
+            )
+            .with_for_update()
+        )
+        seq = result.scalar_one()
+
+    seq.last_sequence += 1
+    return f"GIN-PAY-{year}-{seq.last_sequence:04d}"

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NegativeStockBlockedError
 from app.modules.stock.repository import StockRepository
-from app.shared.enums import PackagingItemType, WasteType
+from app.shared.enums import GinningProductType, PackagingItemType, WasteType
 
 
 class StockService:
@@ -26,6 +26,7 @@ class StockService:
         owner_id: uuid.UUID | None = None,
         waste_type: WasteType | None = None,
         pkg_item_type: PackagingItemType | None = None,
+        ginning_product_type: GinningProductType | None = None,
         lot_number: str | None = None,
         owner_name: str | None = None,
     ) -> tuple[Decimal, bool]:
@@ -42,6 +43,7 @@ class StockService:
             owner_id=owner_id,
             waste_type=waste_type,
             pkg_item_type=pkg_item_type,
+            ginning_product_type=ginning_product_type,
         )
         after = current + delta_kg
         would_go_negative = after < Decimal("0")

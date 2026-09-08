@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.shared.base_model import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.shared.enums import CompanyType
 
 if TYPE_CHECKING:
     from app.modules.warehouse.models import Warehouse
@@ -19,6 +20,7 @@ class Company(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     short_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
     tax_id: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    company_type: Mapped[CompanyType] = mapped_column(nullable=False, default=CompanyType.YARN_SPINNING)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     # Relationships

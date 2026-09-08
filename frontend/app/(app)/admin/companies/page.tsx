@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Pencil, PowerOff, Power, Building2 } from "lucide-react";
@@ -10,20 +10,27 @@ import { toast } from "sonner";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import { companyApi } from "@/lib/api/company";
-import type { Company } from "@/lib/types";
+import type { Company, CompanyType } from "@/lib/types";
 import { useAuthStore } from "@/lib/stores/auth";
 import { DataTable } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Modal, ModalFooter } from "@/components/ui/Modal";
 import { formatDate } from "@/lib/utils";
+
+const COMPANY_TYPE_LABELS: Record<CompanyType, { uz: string; ru: string }> = {
+  YARN_SPINNING: { uz: "Yigiruv (yarn spinning)", ru: "Прядение (yarn spinning)" },
+  GINNING: { uz: "Ginning", ru: "Джинирование (ginning)" },
+};
 
 const schema = z.object({
   name: z.string().min(1).max(255),
   short_name: z.string().max(50).optional().nullable(),
   tax_id: z.string().max(50).optional().nullable(),
   address: z.string().optional().nullable(),
+  company_type: z.enum(["YARN_SPINNING", "GINNING"], { required_error: "Majburiy" }),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -45,7 +52,7 @@ export default function CompaniesPage() {
     queryFn: () => companyApi.list({ page: page + 1, page_size: PAGE_SIZE, search: search || undefined }),
   });
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
   });
 
@@ -70,13 +77,19 @@ export default function CompaniesPage() {
 
   function openCreate() {
     setEditTarget(null);
-    reset({ name: "", short_name: "", tax_id: "", address: "" });
+    reset({ name: "", short_name: "", tax_id: "", address: "", company_type: undefined });
     setModalOpen(true);
   }
 
   function openEdit(company: Company) {
     setEditTarget(company);
-    reset({ name: company.name, short_name: company.short_name, tax_id: company.tax_id, address: company.address });
+    reset({
+      name: company.name,
+      short_name: company.short_name,
+      tax_id: company.tax_id,
+      address: company.address,
+      company_type: company.company_type,
+    });
     setModalOpen(true);
   }
 
@@ -98,6 +111,15 @@ export default function CompaniesPage() {
           {row.original.short_name && <p className="text-xs text-gray-400">{row.original.short_name}</p>}
         </div>
       ),
+    },
+    {
+      accessorKey: "company_type",
+      header: t("Turi", "Тип"),
+      size: 130,
+      cell: ({ getValue }) => {
+        const ct = getValue() as CompanyType;
+        return <Badge variant={ct === "GINNING" ? "warning" : "default"}>{t(COMPANY_TYPE_LABELS[ct].uz, COMPANY_TYPE_LABELS[ct].ru)}</Badge>;
+      },
     },
     { accessorKey: "tax_id", header: t("INN", "ИНН"), cell: ({ getValue }) => getValue() as string || "—" },
     { accessorKey: "address", header: t("Manzil", "Адрес"), cell: ({ getValue }) => (getValue() as string | null) || "—" },
@@ -178,6 +200,23 @@ export default function CompaniesPage() {
       >
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <Input label={t("Nomi *", "Название *")} {...register("name")} error={errors.name?.message} />
+          <Controller
+            control={control}
+            name="company_type"
+            render={({ field }) => (
+              <Select
+                label={t("Kompaniya turi *", "Тип компании *")}
+                value={field.value}
+                onValueChange={field.onChange}
+                options={[
+                  { value: "YARN_SPINNING", label: t(COMPANY_TYPE_LABELS.YARN_SPINNING.uz, COMPANY_TYPE_LABELS.YARN_SPINNING.ru) },
+                  { value: "GINNING", label: t(COMPANY_TYPE_LABELS.GINNING.uz, COMPANY_TYPE_LABELS.GINNING.ru) },
+                ]}
+                placeholder={t("Tanlang", "Выберите")}
+                error={errors.company_type?.message}
+              />
+            )}
+          />
           <Input label={t("Qisqa nomi", "Краткое название")} {...register("short_name")} error={errors.short_name?.message} />
           <Input label={t("INN", "ИНН")} {...register("tax_id")} error={errors.tax_id?.message} />
           <Input label={t("Manzil", "Адрес")} {...register("address")} error={errors.address?.message} />

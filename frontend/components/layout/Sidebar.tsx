@@ -19,15 +19,18 @@ import {
   Users,
   Wheat,
   Layers,
+  Trash2,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth";
-import type { UserRole } from "@/lib/types";
+import type { CompanyType, UserRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { AsptexLogo } from "@/components/brand/AsptexLogo";
 
 interface NavGroup {
   label?: { uz: string; ru: string };
   items: NavItem[];
+  // Omit to show for every company type (e.g. shared Admin group).
+  companyTypes?: CompanyType[];
 }
 
 interface NavItem {
@@ -35,6 +38,8 @@ interface NavItem {
   label: { uz: string; ru: string };
   icon: React.ReactNode;
   roles?: UserRole[];
+  // Omit to show for every company type.
+  companyTypes?: CompanyType[];
 }
 
 const NAV_GROUPS: NavGroup[] = [
@@ -50,6 +55,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: { uz: "Ombor", ru: "Склад" },
+    companyTypes: ["YARN_SPINNING"],
     items: [
       {
         href: "/warehouse/daily-report",
@@ -79,6 +85,7 @@ const NAV_GROUPS: NavGroup[] = [
         label: { uz: "Lotlar", ru: "Лоты" },
         icon: <FileText size={17} />,
         roles: ["ADMIN", "DEPUTY_DIRECTOR", "ACCOUNTANT"],
+        companyTypes: ["YARN_SPINNING"],
       },
       {
         href: "/master/counterparties",
@@ -97,11 +104,13 @@ const NAV_GROUPS: NavGroup[] = [
         label: { uz: "Count katalogi", ru: "Каталог каунтов" },
         icon: <Package size={17} />,
         roles: ["ADMIN", "DEPUTY_DIRECTOR"],
+        companyTypes: ["YARN_SPINNING"],
       },
     ],
   },
   {
     label: { uz: "Tolling", ru: "Толлинг" },
+    companyTypes: ["YARN_SPINNING"],
     items: [
       {
         href: "/tolling/active-lot",
@@ -162,17 +171,29 @@ const NAV_GROUPS: NavGroup[] = [
         icon: <Wheat size={17} />,
         roles: ["ADMIN"],
       },
+      {
+        href: "/admin/data-reset",
+        label: { uz: "Bazani tozalash", ru: "Очистка данных" },
+        icon: <Trash2 size={17} />,
+        roles: ["ADMIN"],
+      },
     ],
   },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { activeRole, language } = useAuthStore();
+  const { activeRole, activeCompanyId, companies, language } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
 
+  const activeCompanyType = companies.find((c) => c.id === activeCompanyId)?.company_type;
+
+  const matchesCompanyType = (companyTypes?: CompanyType[]) =>
+    !companyTypes || (!!activeCompanyType && companyTypes.includes(activeCompanyType));
+
   const isVisible = (item: NavItem) =>
-    !item.roles || (activeRole && item.roles.includes(activeRole));
+    (!item.roles || (activeRole && item.roles.includes(activeRole))) &&
+    matchesCompanyType(item.companyTypes);
 
   return (
     <aside
@@ -199,6 +220,7 @@ export function Sidebar() {
       {/* ── Navigation ────────────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto py-3">
         {NAV_GROUPS.map((group, gi) => {
+          if (!matchesCompanyType(group.companyTypes)) return null;
           const visibleItems = group.items.filter(isVisible);
           if (visibleItems.length === 0) return null;
 

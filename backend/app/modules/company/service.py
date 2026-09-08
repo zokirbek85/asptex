@@ -42,6 +42,7 @@ class CompanyService:
             short_name=data.short_name,
             tax_id=data.tax_id,
             address=data.address,
+            company_type=data.company_type,
         )
         await self.audit.log(
             ctx=ctx,
@@ -49,7 +50,7 @@ class CompanyService:
             action=AuditAction.CREATE,
             entity_id=company.id,
             entity_display=company.name,
-            after_data={"name": company.name, "tax_id": company.tax_id},
+            after_data={"name": company.name, "tax_id": company.tax_id, "company_type": company.company_type.value},
         )
         return company
 
@@ -70,6 +71,8 @@ class CompanyService:
             company.tax_id = data.tax_id
         if data.address is not None:
             company.address = data.address
+        if data.company_type is not None:
+            company.company_type = data.company_type
 
         await self.repo.save(company)
         await self.audit.log(

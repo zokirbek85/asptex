@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import EmailStr, Field, field_validator
 
-from app.shared.enums import UserRole
+from app.shared.enums import CompanyType, UserRole
 from app.shared.schemas import AppBaseModel
 
 
@@ -30,6 +30,7 @@ class CompanyBrief(AppBaseModel):
     name: str
     short_name: str | None
     role: UserRole
+    company_type: CompanyType
 
 
 class UserResponse(AppBaseModel):
