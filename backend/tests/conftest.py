@@ -18,8 +18,11 @@ from app.modules.warehouse.models import Warehouse
 from app.shared.base_model import Base
 from app.shared.enums import UserRole, WarehouseType
 
-# Use a separate test database URL
-TEST_DATABASE_URL = settings.DATABASE_URL.replace("/asptex", "/asptex_test")
+# Use a separate test database URL — replace only the trailing db-name path
+# segment (a blind substring replace also corrupts the username when it
+# happens to match the db name, e.g. user "asptex" + db "asptex").
+_base_url, _db_name = settings.DATABASE_URL.rsplit("/", 1)
+TEST_DATABASE_URL = f"{_base_url}/{_db_name}_test"
 
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
 TestSessionLocal = async_sessionmaker(
