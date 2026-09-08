@@ -23,6 +23,7 @@ const CP_TYPE_OPTIONS = [
   { value: "BUYER", label: "Buyer / Покупатель" },
   { value: "TOLLING_OWNER", label: "Tolling Owner / Давалец" },
   { value: "BOTH", label: "Both / Оба" },
+  { value: "FARMER", label: "Farmer / Фермер" },
 ];
 
 const schema = z.object({
@@ -30,7 +31,7 @@ const schema = z.object({
   short_name: z.string().max(100).optional().nullable(),
   country: z.string().max(100).optional().nullable(),
   tax_id: z.string().max(100).optional().nullable(),
-  counterparty_type: z.enum(["BUYER", "TOLLING_OWNER", "BOTH"]),
+  counterparty_type: z.enum(["BUYER", "TOLLING_OWNER", "BOTH", "FARMER"]),
   notes: z.string().optional().nullable(),
 });
 

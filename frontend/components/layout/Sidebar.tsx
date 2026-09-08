@@ -20,6 +20,12 @@ import {
   Wheat,
   Layers,
   Trash2,
+  Sprout,
+  Truck,
+  PackageCheck,
+  ArrowLeftRight,
+  Landmark,
+  Calculator,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth";
 import type { CompanyType, UserRole } from "@/lib/types";
@@ -129,6 +135,66 @@ const NAV_GROUPS: NavGroup[] = [
         label: { uz: "Lot xulosasi", ru: "Сводка лота" },
         icon: <BarChart3 size={17} />,
         roles: ["ADMIN", "DIRECTOR", "DEPUTY_DIRECTOR", "ACCOUNTANT", "WH_FINISHED"],
+      },
+    ],
+  },
+  {
+    label: { uz: "Ginning", ru: "Джинирование" },
+    companyTypes: ["GINNING"],
+    items: [
+      {
+        href: "/ginning/dashboard",
+        label: { uz: "Boshqaruv paneli", ru: "Дашборд" },
+        icon: <LayoutDashboard size={17} />,
+        roles: ["ADMIN", "DIRECTOR", "DEPUTY_DIRECTOR", "ACCOUNTANT", "WH_RAW", "WH_FINISHED", "PRODUCTION"],
+      },
+      {
+        href: "/ginning/cotton-receiving",
+        label: { uz: "Paxta qabuli", ru: "Приём хлопка" },
+        icon: <Truck size={17} />,
+        roles: ["ADMIN", "DEPUTY_DIRECTOR", "WH_RAW"],
+      },
+      {
+        href: "/ginning/bunts",
+        label: { uz: "Bunt (partiya)", ru: "Бунт (партия)" },
+        icon: <Sprout size={17} />,
+        roles: ["ADMIN", "DEPUTY_DIRECTOR", "WH_RAW", "PRODUCTION"],
+      },
+      {
+        href: "/ginning/production",
+        label: { uz: "Ishlab chiqarish", ru: "Производство" },
+        icon: <ClipboardList size={17} />,
+        roles: ["ADMIN", "DEPUTY_DIRECTOR", "PRODUCTION"],
+      },
+      {
+        href: "/ginning/bales",
+        label: { uz: "Tuklar (bales)", ru: "Кипы" },
+        icon: <PackageCheck size={17} />,
+        roles: ["ADMIN", "DEPUTY_DIRECTOR", "PRODUCTION", "WH_FINISHED"],
+      },
+      {
+        href: "/ginning/exchange-sales",
+        label: { uz: "Birja savdolari", ru: "Биржевые продажи" },
+        icon: <Ship size={17} />,
+        roles: ["ADMIN", "DIRECTOR", "DEPUTY_DIRECTOR", "ACCOUNTANT", "WH_FINISHED"],
+      },
+      {
+        href: "/ginning/intercompany-transfers",
+        label: { uz: "Kompaniyalararo o'tkazma", ru: "Межкорпоративный перевод" },
+        icon: <ArrowLeftRight size={17} />,
+        roles: ["ADMIN", "DIRECTOR", "DEPUTY_DIRECTOR", "WH_FINISHED"],
+      },
+      {
+        href: "/ginning/farmer-settlements",
+        label: { uz: "Fermer hisob-kitobi", ru: "Расчёты с фермерами" },
+        icon: <Landmark size={17} />,
+        roles: ["ADMIN", "DIRECTOR", "DEPUTY_DIRECTOR", "ACCOUNTANT"],
+      },
+      {
+        href: "/ginning/costing",
+        label: { uz: "Tannarx", ru: "Себестоимость" },
+        icon: <Calculator size={17} />,
+        roles: ["ADMIN", "DIRECTOR", "DEPUTY_DIRECTOR", "ACCOUNTANT"],
       },
     ],
   },

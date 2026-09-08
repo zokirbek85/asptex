@@ -42,6 +42,11 @@ from app.modules.ginning_bunt.router import router as ginning_bunt_router
 from app.modules.cotton_receiving.router import router as cotton_receiving_router
 from app.modules.ginning_production.router import router as ginning_production_router
 from app.modules.ginning_bale.router import router as ginning_bale_router
+from app.modules.intercompany_transfer.router import router as intercompany_transfer_router
+from app.modules.exchange_sale.router import router as exchange_sale_router
+from app.modules.farmer_settlement.router import router as farmer_settlement_router
+from app.modules.ginning_costing.router import router as ginning_costing_router
+from app.modules.ginning_dashboard.router import router as ginning_dashboard_router
 
 import app.modules.shipment.models
 import app.modules.user.models
@@ -61,6 +66,10 @@ import app.modules.cotton_receiving.models
 import app.modules.farmer_ledger.models
 import app.modules.ginning_production.models
 import app.modules.ginning_bale.models
+import app.modules.intercompany_transfer.models
+import app.modules.exchange_sale.models
+import app.modules.farmer_settlement.models
+import app.modules.ginning_costing.models
 
 
 @asynccontextmanager
@@ -175,6 +184,11 @@ app.include_router(ginning_bunt_router, prefix="/api/v1")
 app.include_router(cotton_receiving_router, prefix="/api/v1")
 app.include_router(ginning_production_router, prefix="/api/v1")
 app.include_router(ginning_bale_router, prefix="/api/v1")
+app.include_router(intercompany_transfer_router, prefix="/api/v1")
+app.include_router(exchange_sale_router, prefix="/api/v1")
+app.include_router(farmer_settlement_router, prefix="/api/v1")
+app.include_router(ginning_costing_router, prefix="/api/v1")
+app.include_router(ginning_dashboard_router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["health"])

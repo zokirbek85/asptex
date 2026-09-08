@@ -44,6 +44,15 @@ class CottonReceivingRepository(BaseRepository[CottonReceiving]):
         )
         return list(result.scalars().all()), total
 
+    async def get_posted_for_bunt(self, bunt_id: uuid.UUID) -> list[CottonReceiving]:
+        result = await self.session.execute(
+            select(CottonReceiving).where(
+                CottonReceiving.bunt_id == bunt_id,
+                CottonReceiving.status == CottonReceivingStatus.POSTED,
+            )
+        )
+        return list(result.scalars().all())
+
 
 class CottonPriceListRepository(BaseRepository[CottonPriceList]):
     model = CottonPriceList
